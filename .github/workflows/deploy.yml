@@ -28,6 +28,12 @@ jobs:
         with:
           bun-version: latest
 
+      - name: 缓存 Playwright 浏览器
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.64.1-chromium
+
       - name: 安装测试依赖
         run: |
           bun install --frozen-lockfile

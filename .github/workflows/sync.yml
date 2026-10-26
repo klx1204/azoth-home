@@ -39,6 +39,13 @@ jobs:
             python -c "import json; print('commit=' + json.load(open('upstream.lock.json'))['commit'][:10])" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: 缓存 Playwright 浏览器
+        if: steps.sync.outputs.changed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-1.64.1-chromium
+
       - name: 安装测试依赖
         if: steps.sync.outputs.changed == 'true'
         run: |

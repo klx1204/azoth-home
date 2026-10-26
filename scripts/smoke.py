@@ -101,6 +101,7 @@ def main() -> int:
     check((DIST / "play" / "native-save.js").is_file(), "play/native-save.js is missing")
     check((DIST / "extras" / "mon-codec.js").is_file(), "extras/mon-codec.js is missing")
     check((DIST / "index.html").is_file(), "dist/index.html landing page is missing")
+    check((DIST / "home" / "index.html").is_file(), "dist/home/index.html redirect page is missing")
 
     if errors:
         print("smoke failed:", file=sys.stderr)
