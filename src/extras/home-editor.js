@@ -131,11 +131,26 @@
           return `<button type="button" data-index="${index}"><span>${escapeHtml(item.label)}</span>${hint}</button>`;
         }).join("")
         : `<div class="azoth-picker-empty">没有匹配项</div>`;
-      const rect = input.getBoundingClientRect();
-      menu.style.left = `${rect.left}px`;
-      menu.style.top = `${rect.bottom + 4}px`;
-      menu.style.width = `${rect.width}px`;
       menu.hidden = false;
+
+      // Phones: expand inline under the input. A fixed popover drifts once the
+      // soft keyboard resizes the viewport.
+      if (window.matchMedia("(max-width: 640px)").matches) {
+        menu.style.position = "";
+        menu.style.left = "";
+        menu.style.top = "";
+        menu.style.width = "";
+        requestAnimationFrame(() => menu.scrollIntoView({ block: "nearest" }));
+        return;
+      }
+
+      const rect = input.getBoundingClientRect();
+      menu.style.position = "fixed";
+      menu.style.left = `${rect.left}px`;
+      menu.style.width = `${rect.width}px`;
+      const height = menu.offsetHeight;
+      const openUp = rect.bottom + height + 12 > window.innerHeight && rect.top > height + 12;
+      menu.style.top = openUp ? `${rect.top - height - 4}px` : `${rect.bottom + 4}px`;
     };
 
     input.addEventListener("input", () => {

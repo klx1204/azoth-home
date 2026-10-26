@@ -1,8 +1,8 @@
 /* Styles for the injected editor. Upstream styles are untouched. */
 
-/* This build is file-based only: hide the browser-save picker and button.
-   The nodes stay in the DOM because upstream's script binds handlers to them. */
-#browserSaveVersion,
+/* This build is file-based only: hide the browser-save button but keep the
+   version picker visible. The nodes stay in the DOM because upstream's script
+   binds handlers to them. */
 #browserSaveBtn {
   display: none !important;
 }
@@ -297,6 +297,15 @@
 }
 
 @media (max-width: 640px) {
+  .azoth-picker-menu {
+    position: static;
+    width: auto;
+    max-height: 220px;
+    margin-top: 6px;
+    box-shadow: none;
+    border-color: #d9e5e1;
+  }
+
   .azoth-editor-two {
     grid-template-columns: 1fr;
   }
