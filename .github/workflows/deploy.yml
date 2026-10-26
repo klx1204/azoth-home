@@ -1,0 +1,62 @@
+name: 部署水银 HOME
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 安装测试依赖
+        run: |
+          bun install --frozen-lockfile
+          npx --yes playwright@1.64.1 install --with-deps chromium
+
+      - name: 构建
+        run: python scripts/build.py
+
+      - name: 静态检查
+        run: python scripts/smoke.py
+
+      - name: 编解码单元测试
+        run: node --test tests/codec.test.mjs
+
+      - name: 浏览器冒烟测试
+        env:
+          PW_CHANNEL: none
+        run: node tests/browser.mjs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

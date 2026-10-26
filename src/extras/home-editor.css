@@ -1,0 +1,194 @@
+/* Styles for the injected editor. Upstream styles are untouched. */
+
+.azoth-edit-btn {
+  background: #fff;
+  color: #195e54;
+  border: 1px solid #b9cdc7;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.azoth-edit-btn:hover {
+  background: #f1f7f5;
+  border-color: #287d70;
+}
+
+.azoth-editor {
+  border: 0;
+  padding: 0;
+  border-radius: 8px;
+  width: min(760px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  background: #fff;
+  color: #243332;
+  box-shadow: 0 18px 48px rgba(20, 30, 28, 0.28);
+  font-family: var(--md-text-font, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif);
+  font-size: 14px;
+}
+
+.azoth-editor::backdrop {
+  background: rgba(20, 30, 28, 0.45);
+}
+
+.azoth-editor form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+}
+
+.azoth-editor header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #d9e5e1;
+}
+
+.azoth-editor header h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  color: #195e54;
+}
+
+.azoth-editor header p {
+  margin: 0;
+  font-size: 12px;
+  color: #586967;
+  line-height: 1.5;
+}
+
+.azoth-editor-close {
+  border: 0;
+  background: transparent;
+  color: #586967;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.azoth-editor-grid {
+  overflow: auto;
+  padding: 16px 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.azoth-editor-row {
+  display: grid;
+  gap: 6px;
+}
+
+.azoth-editor-row > span {
+  font-size: 13px;
+  color: #243332;
+  font-weight: 600;
+}
+
+.azoth-editor-row > span small {
+  font-weight: 400;
+  color: #586967;
+}
+
+.azoth-editor-row input[type="search"],
+.azoth-editor-row input[type="text"],
+.azoth-editor-row input[type="number"],
+.azoth-editor-row select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: #243332;
+  background: #fff;
+  border: 1px solid #b9cdc7;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.azoth-editor-row input:focus,
+.azoth-editor-row select:focus {
+  outline: 2px solid rgba(40, 125, 112, 0.35);
+  border-color: #287d70;
+}
+
+.azoth-editor-row small {
+  font-size: 12px;
+  color: #586967;
+}
+
+.azoth-editor-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.azoth-editor-stat {
+  display: grid;
+  gap: 4px;
+}
+
+.azoth-editor-stat span {
+  font-size: 12px;
+  color: #586967;
+}
+
+.azoth-editor-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.azoth-editor-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #586967;
+  background: #f1f7f5;
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.azoth-editor-error {
+  margin: 0;
+  min-height: 18px;
+  font-size: 13px;
+  color: #b3261e;
+}
+
+.azoth-editor footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #d9e5e1;
+}
+
+.azoth-editor footer button {
+  font: inherit;
+  padding: 7px 16px;
+  border-radius: 4px;
+  border: 1px solid #b9cdc7;
+  background: #fff;
+  color: #195e54;
+  cursor: pointer;
+}
+
+.azoth-editor footer button.primary {
+  background: #287d70;
+  border-color: #287d70;
+  color: #fff;
+}
+
+.azoth-editor footer button.primary:hover {
+  background: #1f6a5f;
+}
+
+@media (max-width: 640px) {
+  .azoth-editor-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

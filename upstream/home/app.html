@@ -1,0 +1,2162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>宝可梦水银 HOME</title>
+  <style>
+:root {
+  --bg: #dcefd8;
+  --panel: rgba(245, 250, 240, .88);
+  --panel-strong: #ffffff;
+  --line: rgba(64, 140, 125, .35);
+  --text: #14304a;
+  --muted: #5d7790;
+  --accent: #1fb7ad;
+  --orange: #f2a400;
+  --home: #eb8d7e;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 12px 16px 18px;
+  background:
+    radial-gradient(circle at 22% 22%, rgba(255,255,255,.55) 0 2px, transparent 3px),
+    linear-gradient(135deg, #cce8c8, #a9ded7 55%, #74cfc9);
+  background-size: 42px 42px, auto;
+  color: var(--text);
+  font-family: "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+.top {
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 380px) 190px 180px 120px;
+  align-items: center;
+  gap: 14px;
+  margin: 0 auto 10px;
+  max-width: 1280px;
+}
+.save-btn,
+.import-btn {
+  height: 54px;
+  border: 0;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.save-btn {
+  background: #16a34a;
+  box-shadow: 0 8px 18px rgba(22, 163, 74, .24);
+}
+.import-btn {
+  background: #2563eb;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, .22);
+}
+.save-source { display: grid; gap: 6px; min-width: 0; }
+.save-source > button { width: 100%; height: 40px; }
+.save-source .drop { min-width: 0; }
+.save-source select { width: 100%; min-width: 0; padding: 8px 4px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-strong); color: var(--text); font: inherit; }
+.save-btn:hover { filter: brightness(1.05); }
+.import-btn:hover { filter: brightness(1.05); }
+h1 { margin: 0; font-size: 30px; }
+p { margin: 4px 0 0; color: var(--muted); }
+.drop {
+  min-height: 72px;
+  border: 2px dashed rgba(55, 126, 242, .45);
+  border-radius: 18px;
+  background: rgba(238, 245, 255, .8);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  text-align: center;
+  padding: 10px;
+}
+.drop.drag { background: #ddecff; border-color: #3478f6; }
+.drop input { display: none; }
+.drop strong { font-size: 18px; }
+.drop span, .summary { color: var(--muted); }
+.home-loading {
+  max-width: 1280px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.home-loading[hidden] { display: none; }
+.home-progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(20, 48, 74, .12);
+}
+.home-progress-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width .12s linear;
+}
+.home-progress-track.indeterminate .home-progress-bar {
+  width: 32%;
+  animation: home-progress-slide 1s ease-in-out infinite alternate;
+}
+@keyframes home-progress-slide {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(350%); }
+}
+.summary { max-width: 1280px; margin: 0 auto 10px; }
+.mobile-save {
+  max-width: 1280px;
+  margin: 0 auto 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.68);
+  color: var(--muted);
+}
+.mobile-save a,
+.mobile-save button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  margin: 4px 8px 4px 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+.mobile-save button { background: #16a34a; }
+
+.home-layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.panel {
+  min-height: 520px;
+  overflow: hidden;
+  border: 3px solid rgba(31, 183, 173, .72);
+  border-radius: 20px;
+  background: var(--panel);
+  box-shadow: 0 12px 28px rgba(20, 80, 95, .14);
+}
+.home-panel { border-color: rgba(235, 141, 126, .72); }
+.panel-head {
+  height: 56px;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--accent);
+}
+.home-panel .panel-head { background: var(--home); }
+.panel-head h2 {
+  margin: 0;
+  height: 36px;
+  line-height: 36px;
+  text-align: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .82);
+  color: #657385;
+  font-size: 18px;
+  font-weight: 700;
+}
+.save-panel .panel-head h2 {
+  background: var(--orange);
+  color: #fff;
+}
+.nav-btn {
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(255,255,255,.18);
+  font-size: 34px;
+  line-height: 34px;
+  cursor: pointer;
+}
+.nav-btn:hover { background: rgba(255,255,255,.3); }
+
+.box-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 78px;
+  gap: 8px;
+  padding: 18px;
+}
+.slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(204, 235, 218, .54);
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.slot:hover { outline: 3px solid rgba(52, 120, 246, .25); }
+.slot.dragging { opacity: .42; }
+.slot.drop-target { outline: 3px solid rgba(255, 170, 0, .72); }
+.slot.selected {
+  outline: 4px solid rgba(255, 170, 0, .95);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, .72) inset;
+}
+.slot.locked {
+  cursor: not-allowed;
+}
+.slot.locked::before, .slot.converting::before {
+  content: "LOCK";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  z-index: 2;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(20, 48, 74, .82);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.slot.converting::before { content: "转换"; background: #87520b; }
+.compat-notice { color: #87520b; margin: 6px 0; line-height: 1.6; }
+@media (prefers-color-scheme: dark) { .compat-notice { color: #ffc568; } }
+.slot.locked img.mon-icon {
+  filter: grayscale(.8) opacity(.72);
+}
+.slot.empty::after {
+  content: "";
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(188, 224, 207, .45);
+}
+.slot img.mon-icon {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 3px rgba(28, 60, 70, .2));
+}
+.slot img.item-icon {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 2px rgba(28, 60, 70, .18));
+}
+.slot .level {
+  position: absolute;
+  right: 4px;
+  top: 3px;
+  color: #246cff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.slot .shiny-mark {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  color: #f59e0b;
+  font-size: 18px;
+  font-weight: 900;
+  text-shadow: 0 1px 0 #fff, 0 0 5px rgba(255,255,255,.9);
+}
+
+.detail {
+  max-width: 1280px;
+  min-height: 92px;
+  margin: 12px auto 0;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.54);
+  color: var(--muted);
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px;
+}
+.detail.empty-detail { display: block; }
+.detail-sprite {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  align-self: center;
+  justify-self: center;
+}
+.detail-body { min-width: 0; }
+.detail strong { color: var(--text); font-size: 20px; }
+.shiny-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fff3bf;
+  color: #b45309;
+  font-size: 13px;
+  vertical-align: middle;
+}
+.detail .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.detail .chips span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.78);
+  color: var(--text);
+  font-size: 13px;
+}
+.detail-actions { margin-top: 8px; }
+.detail-actions button,
+.modal-actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(12, 30, 48, .42);
+}
+.modal {
+  width: min(520px, 100%);
+  max-height: min(720px, 92vh);
+  overflow: auto;
+  position: relative;
+  border-radius: 20px;
+  background: #fff;
+  padding: 18px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.22);
+}
+.modal h2 { margin: 0 36px 12px 0; }
+.modal-close {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(20,48,74,.08);
+  font-size: 24px;
+  cursor: pointer;
+}
+.share-qr {
+  display: block;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto 12px;
+  image-rendering: pixelated;
+}
+.share-key {
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  border: 1px solid rgba(64, 140, 125, .35);
+  border-radius: 12px;
+  padding: 10px;
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.qr-file {
+  display: grid;
+  place-items: center;
+  min-height: 64px;
+  margin-bottom: 10px;
+  border: 2px dashed rgba(37, 99, 235, .35);
+  border-radius: 14px;
+  background: rgba(238,245,255,.86);
+  color: #2563eb;
+  font-weight: 800;
+  cursor: pointer;
+}
+.qr-file input { display: none; }
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.modal-hint { font-size: 13px; }
+
+@media (max-width: 980px) {
+  .top, .home-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  body {
+    padding: 10px 8px 14px;
+  }
+
+  .top {
+    gap: 10px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  p {
+    font-size: 13px;
+  }
+
+  .drop {
+    min-height: 64px;
+  }
+
+  .save-btn {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .panel {
+    min-height: auto;
+    border-width: 2px;
+    border-radius: 16px;
+  }
+
+  .panel-head {
+    height: 50px;
+    grid-template-columns: 40px 1fr 40px;
+    padding: 6px 8px;
+  }
+
+  .panel-head h2 {
+    height: 34px;
+    line-height: 34px;
+    font-size: 16px;
+  }
+
+  .nav-btn {
+    height: 38px;
+    font-size: 28px;
+  }
+
+  .box-grid {
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: minmax(58px, 15.5vw);
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .slot {
+    border-radius: 14px;
+  }
+
+  .slot.empty::after {
+    width: 34px;
+    height: 34px;
+  }
+
+  .slot img.mon-icon {
+    width: min(58px, 13vw);
+    height: min(58px, 13vw);
+  }
+
+  .slot img.item-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .slot .level {
+    font-size: 11px;
+  }
+
+  .detail {
+    grid-template-columns: 96px 1fr;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .detail-sprite {
+    width: 88px;
+    height: 88px;
+  }
+
+  .detail strong {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .box-grid {
+    grid-auto-rows: minmax(52px, 16vw);
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .slot img.mon-icon {
+    width: min(52px, 13.5vw);
+    height: min(52px, 13.5vw);
+  }
+
+  .detail {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-sprite {
+    width: 96px;
+    height: 96px;
+  }
+}
+
+.data-btns {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 14px;
+}
+.data-btn {
+  flex: 1;
+  height: 54px;
+  border: 0;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.export-btn {
+  background: #d97706;
+  box-shadow: 0 8px 18px rgba(217, 119, 6, .24);
+}
+.restore-btn {
+  background: #0891b2;
+  box-shadow: 0 8px 18px rgba(8, 145, 178, .22);
+}
+.data-btn:hover { filter: brightness(1.05); }
+.home-note {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(217, 119, 6, .1);
+  border: 1px solid rgba(217, 119, 6, .3);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.back-btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(55, 126, 242, .35);
+  color: #2563eb;
+  font-size: 13px;
+  text-decoration: none;
+  background: rgba(255, 255, 255, .5);
+}
+.back-btn:hover { background: rgba(37, 99, 235, .1); }
+
+  </style>
+<link rel="stylesheet" href="../stylesheets/standalone.css?v=home-layout-20261006">
+<link rel="stylesheet" href="../stylesheets/pixel-images.css">
+<script defer src="../javascripts/pixel-images.js"></script>
+</head>
+<body data-pixel-document>
+  <header class="top">
+    <a class="back-btn" href="https://sum-light.github.io/azoth-wiki/">← 返回百科</a>
+    <div>
+      <h1>宝可梦水银 HOME</h1>
+      <p>支持水银 FC（25 箱）与新版对战塔（18 箱）。HOME 数据保持旧版格式，跨版本传送自动转换。</p>
+    </div>
+    <div class="save-source">
+    <select id="browserSaveVersion" aria-label="网页存档版本">
+      <option value="fc">宝可梦水银 FC～致150年后的你 · 1.33</option>
+      <option value="tower" selected>宝可梦水银 对战塔特别版 · 3.0</option>
+    </select>
+    <button class="import-btn" id="browserSaveBtn" type="button">读取网页存档</button>
+    <section class="drop" id="drop">
+      <input type="file" id="file" accept=".sav,.srm,.sa1,.fla">
+      <strong>选择或拖入 SAV / SRM</strong>
+      <span>128 KiB GBA Flash Save</span>
+    </section>
+    </div>
+    <button class="import-btn" id="importMonBtn" type="button">扫描二维码 / 输入密钥</button>
+    <button class="save-btn" id="saveBtn" type="button">保存 HOME 和 SAV</button>
+    <div class="data-btns">
+      <button class="data-btn export-btn" id="exportHomeBtn" type="button">导出 HOME 备份</button>
+      <button class="data-btn restore-btn" id="importHomeBtn" type="button">导入 HOME 备份</button>
+      <input type="file" id="homeDataFile" accept=".json,application/json" hidden>
+    </div>
+    <p class="home-note">HOME 数据保存在浏览器本地（localStorage），清除"网站数据"、换浏览器或换设备会丢失——请定期用"导出 HOME 备份"保存 JSON 文件。</p>
+  </header>
+
+  <section class="home-loading" id="homeLoading" role="status" aria-live="polite">
+    <span id="homeLoadText">加载 HOME 数据…</span>
+    <div class="home-progress-track indeterminate" id="homeLoadTrack" role="progressbar" aria-label="正在加载 HOME" aria-valuemin="0" aria-valuemax="100"><span class="home-progress-bar" id="homeLoadBar"></span></div>
+  </section>
+  <script>
+document.body.inert = true;
+const homeLoadTrack = document.getElementById("homeLoadTrack");
+const homeLoadBar = document.getElementById("homeLoadBar");
+const homeLoadText = document.getElementById("homeLoadText");
+window.updateHomeLoading = (value, label, indeterminate = false) => {
+  homeLoadText.textContent = label;
+  homeLoadTrack.classList.toggle("indeterminate", indeterminate);
+  if (indeterminate) {
+    homeLoadTrack.removeAttribute("aria-valuenow");
+  } else {
+    homeLoadTrack.setAttribute("aria-valuenow", String(value));
+    homeLoadBar.style.width = value + "%";
+  }
+};
+window.beginHomeLoading = label => {
+  document.getElementById("homeLoading").hidden = false;
+  window.updateHomeLoading(0, label, true);
+};
+window.finishHomeLoading = () => {
+  window.updateHomeLoading(100, "\u5df2\u52a0\u8f7d");
+  requestAnimationFrame(() => { document.getElementById("homeLoading").hidden = true; });
+};
+const homeDataBytes = 1387543;
+window.homeDataReady = (async () => {
+  const response = await fetch("home-game-data.json?v=cd78ba19a88e", { cache: "force-cache" });
+  if (!response.ok) throw new Error("\u65e0\u6cd5\u52a0\u8f7d HOME \u6570\u636e");
+  await new Promise(requestAnimationFrame);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.byteLength;
+    const percent = Math.min(80, Math.floor(loaded / homeDataBytes * 80));
+    window.updateHomeLoading(percent, `\u52a0\u8f7d HOME \u6570\u636e ${Math.floor(percent / 0.8)}%`);
+  }
+  const bytes = new Uint8Array(loaded);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  window.updateHomeLoading(82, "\u6b63\u5728\u89e3\u6790 HOME \u6570\u636e\u2026", true);
+  await new Promise(requestAnimationFrame);
+  window.SAVE_HOME_GAME_DATA = JSON.parse(new TextDecoder().decode(bytes));
+  window.updateHomeLoading(88, "\u6b63\u5728\u51c6\u5907 HOME\u2026", true);
+  return window.SAVE_HOME_GAME_DATA;
+})();
+window.homeDataReady.catch(() => {
+  document.body.inert = false;
+  window.updateHomeLoading(0, "\u52a0\u8f7d\u5931\u8d25");
+});
+  </script>
+  <section class="summary" id="summary">等待读取存档。</section>
+  <section class="mobile-save" id="mobileSave" hidden></section>
+
+  <main class="home-layout">
+    <section class="panel home-panel">
+      <div class="panel-head">
+        <button class="nav-btn" id="homePrev">‹</button>
+        <h2>HOME盒子 <span id="homeBoxTitle">1</span></h2>
+        <button class="nav-btn" id="homeNext">›</button>
+      </div>
+      <div class="box-grid" id="homeBox"></div>
+    </section>
+
+    <section class="panel save-panel">
+      <div class="panel-head">
+        <button class="nav-btn" id="savPrev">‹</button>
+        <h2>盒子 <span id="savBoxTitle">1</span></h2>
+        <button class="nav-btn" id="savNext">›</button>
+      </div>
+      <div class="box-grid" id="savBox"></div>
+    </section>
+  </main>
+
+  <section class="detail empty-detail" id="detail">选择宝可梦后点击目标格，或拖拽移动／交换。新版对战塔独有的物种、携带物、招式及无法保留的个体状态不能进入 HOME。</section>
+
+
+  <script src="decomp-data.js?v=20261016"></script>
+  <script src="decomp-compat.js?v=20261016"></script>
+<script src="../play/native-save.js?v=20261017-local1"></script>
+<script src="browser-save.js?v=20261017-local1"></script>
+  <script>
+(async () => {
+  await window.homeDataReady;
+  window.updateHomeLoading(92, "\u6b63\u5728\u6253\u5f00 HOME\u2026");
+const SECTOR_SIZE = 0x1000;
+const SECTOR_DATA = 0xFF0;
+const SLOT_SECTORS = 14;
+const SIGNATURE = 0x08012025;
+const SECTION_SIZES = [
+  0xF24,
+  0xFF0, 0xFF0, 0xFF0, 0xD98,
+  0xFF0, 0xFF0, 0xFF0, 0xFF0, 0xFF0, 0xFF0, 0xFF0, 0xFF0, 0x450,
+];
+const BOX_MON_SIZE = 58;
+const STORAGE_BOX_OFFSET = 4;
+const STORAGE_BOXES = 25;
+const BOX_CAPACITY = 30;
+const SPECIAL_BOX20_OFFSET = 0xB0C;
+const SAVEBLOCK1_BOX23_OFFSET = 0x1F08;
+const SAVEBLOCK2_BOX25_OFFSET = 0x0B0;
+const HOME_BOXES = 25;
+const HOME_KEY = "pokemon_mercury_home_boxes_v1";
+
+const compat = window.AzothHomeCompat;
+let gameData = null;
+let decodeEntries = [];
+let currentSave = null;
+let currentSaveBuffer = null;
+let currentSaveName = "modified.sav";
+let currentSlot = null;
+let currentFileHandle = null;
+let currentBrowserSave = false;
+let currentNativeSave = false;
+let currentBrowserProfile = "tower";
+let homeStorageSnapshot = localStorage.getItem(HOME_KEY);
+let homeIOBusy = false;
+let homeRecoveryBlocked = false;
+function setHomeBusy(busy) {
+  homeIOBusy = busy;
+  document.body.inert = busy || homeRecoveryBlocked;
+}
+function setSaveSource(browser) {
+  currentBrowserSave = browser;
+  $("saveBtn").textContent = browser ? (currentNativeSave ? "保存到本地文件" : "保存到浏览器") : "保存 HOME 和 SAV";
+}
+async function loadBrowserSave() {
+  if (homeIOBusy || homeRecoveryBlocked) return;
+  window.beginHomeLoading("\u6b63\u5728\u8bfb\u53d6\u7f51\u9875\u5b58\u6863\u2026");
+  setHomeBusy(true);
+  try {
+    const profile = $("browserSaveVersion").value;
+    const spec = window.AzothBrowserSave.profiles[profile];
+    const loaded = await window.AzothBrowserSave.load(HOME_KEY, profile);
+    window.updateHomeLoading(30, "\u6b63\u5728\u89e3\u6790\u5b58\u6863\u2026", true);
+    await new Promise(requestAnimationFrame);
+    if (loaded.home !== homeStorageSnapshot) throw new Error("HOME 已在其他页面更新，请刷新后再读取。" );
+    const buffer = loaded.bytes.buffer;
+    const parsed = parseSave(buffer);
+    if (parsed.format !== spec.format) throw new Error("存档格式与所选版本不符，请使用 SAV 文件导入。" );
+    currentSaveBuffer = buffer.slice(0);
+    currentSaveName = spec.key.split("/").pop();
+    currentBrowserProfile = profile;
+    currentFileHandle = null;
+    currentNativeSave = loaded.local;
+    setSaveSource(true);
+    window.updateHomeLoading(75, "\u6b63\u5728\u663e\u793a\u5b58\u6863\u2026", true);
+    await new Promise(requestAnimationFrame);
+    hideMobileSaveFallback();
+    render(parsed);
+    $("summary").textContent = `已读取 ${spec.label} ${loaded.local ? loaded.name : "网页存档"}；整理后点击保存，再重新打开对应游戏。`;
+  } catch (err) { $("summary").textContent = `读取失败：${err.message}`; }
+  finally { window.finishHomeLoading(); setHomeBusy(false); }
+}
+let homeBoxIndex = 0;
+let savBoxIndex = 0;
+let draggedRef = null;
+let selectedRef = null;
+let homeBoxes = loadHomeBoxes();
+
+const $ = (id) => document.getElementById(id);
+
+if (window.SAVE_HOME_GAME_DATA) {
+  gameData = window.SAVE_HOME_GAME_DATA;
+  decodeEntries = buildDecodeEntries(gameData.charmap || {});
+  compat.configure(gameData, parseBoxMonCfru);
+} else {
+  $("summary").textContent = "未找到 assets/game_data.js，请先运行 scripts/generate_save_home_assets.py";
+}
+
+function u16(dv, off) { return dv.getUint16(off, true); }
+function u32(dv, off) { return dv.getUint32(off, true); }
+
+function isShinyPersonality(personality, otId) {
+  const pidLo = personality & 0xFFFF;
+  const pidHi = personality >>> 16;
+  const tid = otId & 0xFFFF;
+  const sid = otId >>> 16;
+  return ((pidLo ^ pidHi ^ tid ^ sid) >>> 0) < 16;
+}
+
+function parseSave(buffer) {
+  const native = compat.parseSave(buffer);
+  if (native) return native;
+  const dv = new DataView(buffer);
+  const slots = [readSlot(dv, 0), readSlot(dv, SLOT_SECTORS)];
+  const valid = slots.filter(Boolean).sort((a, b) => a.counter === b.counter ? 0 : (((b.counter - a.counter) >>> 0) < 0x80000000 ? 1 : -1));
+  if (!valid.length) throw new Error("没有找到校验通过的水银 FC 或新版对战塔存档槽。");
+
+  const slot = valid[0];
+  const saveBlock2 = slot.sections[0] || new Uint8Array(SECTION_SIZES[0]);
+  const saveBlock1 = concatChunks(slot.sections, [1, 2, 3, 4]);
+  const storage = concatChunks(slot.sections, [5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  const special = readSpecialSectors(dv);
+  return {
+    format: "fc",
+    counter: slot.counter,
+    slot,
+    boxes: parseStorage(storage, saveBlock1, saveBlock2, special),
+  };
+}
+
+function readSlot(dv, baseSector) {
+  const sections = {};
+  let counter;
+  if (dv.byteLength < (baseSector + SLOT_SECTORS) * SECTOR_SIZE) return null;
+  for (let i = 0; i < SLOT_SECTORS; i++) {
+    const off = (baseSector + i) * SECTOR_SIZE;
+    const id = u16(dv, off + 0xFF4);
+    const signature = u32(dv, off + 0xFF8);
+    const sectionCounter = u32(dv, off + 0xFFC);
+    if (signature !== SIGNATURE || id >= SLOT_SECTORS || sections[id] ||
+        (counter !== undefined && counter !== sectionCounter)) return null;
+    const data = new Uint8Array(dv.buffer.slice(off, off + SECTION_SIZES[id]));
+    if (checksum(data) !== u16(dv, off + 0xFF6)) return null;
+    sections[id] = data;
+    counter = sectionCounter;
+  }
+  return { sections, counter, baseSector };
+}
+
+function readSpecialSectors(dv) {
+  const out = new Uint8Array(SECTOR_DATA * 2);
+  if (dv.byteLength >= 32 * SECTOR_SIZE) {
+    out.set(new Uint8Array(dv.buffer.slice(30 * SECTOR_SIZE, 30 * SECTOR_SIZE + SECTOR_DATA)), 0);
+    out.set(new Uint8Array(dv.buffer.slice(31 * SECTOR_SIZE, 31 * SECTOR_SIZE + SECTOR_DATA)), SECTOR_DATA);
+  }
+  return out;
+}
+
+function concatChunks(sections, ids) {
+  const parts = ids.map((id) => sections[id] || new Uint8Array(SECTOR_DATA));
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
+  return out;
+}
+
+function parseStorage(storage, saveBlock1, saveBlock2, special) {
+  const boxes = [];
+  for (let box = 0; box < STORAGE_BOXES; box++) {
+    const mons = [];
+    for (let slot = 0; slot < BOX_CAPACITY; slot++) {
+      const bytes = getBoxMonBytes(box, slot, storage, saveBlock1, saveBlock2, special);
+      const mon = parseBoxMonCfru(bytes);
+      if (mon && mon.species) mons.push({ ...mon, box, slot });
+    }
+    boxes.push(mons);
+  }
+  return boxes;
+}
+
+function getBoxMonBytes(box, slot, storage, saveBlock1, saveBlock2, special) {
+  if (box < 19) {
+    const off = STORAGE_BOX_OFFSET + (box * BOX_CAPACITY + slot) * BOX_MON_SIZE;
+    return storage.slice(off, off + BOX_MON_SIZE);
+  }
+  if (box < 22) {
+    const off = SPECIAL_BOX20_OFFSET + ((box - 19) * BOX_CAPACITY + slot) * BOX_MON_SIZE;
+    return special.slice(off, off + BOX_MON_SIZE);
+  }
+  if (box < 24) {
+    const off = SAVEBLOCK1_BOX23_OFFSET + ((box - 22) * BOX_CAPACITY + slot) * BOX_MON_SIZE;
+    return saveBlock1.slice(off, off + BOX_MON_SIZE);
+  }
+  const off = SAVEBLOCK2_BOX25_OFFSET + slot * BOX_MON_SIZE;
+  return saveBlock2.slice(off, off + BOX_MON_SIZE);
+}
+
+function parseBoxMonCfru(bytes) {
+  if (bytes.length < BOX_MON_SIZE) return null;
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const species = u16(dv, 28);
+  if (!species) return null;
+  const exp = u32(dv, 32);
+  const personality = u32(dv, 0);
+  const otId = u32(dv, 4);
+  return {
+    personality,
+    otId,
+    raw: Array.from(bytes.slice(0, BOX_MON_SIZE)),
+    nickname: decodeGameText(bytes.slice(8, 18)),
+    species,
+    heldItem: u16(dv, 30),
+    exp,
+    friendship: dv.getUint8(37),
+    moves: unpackCompressedMoves(bytes.slice(39, 44)).filter(Boolean),
+    evs: {
+      hp: dv.getUint8(44),
+      atk: dv.getUint8(45),
+      def: dv.getUint8(46),
+      spe: dv.getUint8(47),
+      spa: dv.getUint8(48),
+      spd: dv.getUint8(49),
+    },
+    ivs: parseIvWord(u32(dv, 54)),
+    shiny: isShinyPersonality(personality, otId),
+    level: estimateLevel(species, exp),
+  };
+}
+
+function unpackCompressedMoves(bytes) {
+  const bits =
+    BigInt(bytes[0] || 0) |
+    (BigInt(bytes[1] || 0) << 8n) |
+    (BigInt(bytes[2] || 0) << 16n) |
+    (BigInt(bytes[3] || 0) << 24n) |
+    (BigInt(bytes[4] || 0) << 32n);
+  return [0, 1, 2, 3].map((i) => Number((bits >> BigInt(i * 10)) & 0x3FFn));
+}
+
+function parseIvWord(ivWord) {
+  return {
+    hp: ivWord & 31,
+    atk: (ivWord >>> 5) & 31,
+    def: (ivWord >>> 10) & 31,
+    spe: (ivWord >>> 15) & 31,
+    spa: (ivWord >>> 20) & 31,
+    spd: (ivWord >>> 25) & 31,
+  };
+}
+
+function estimateLevel(species, exp) {
+  const data = gameData && gameData.species[String(species)];
+  const table = data && gameData.experienceTables && gameData.experienceTables[data.growthRate || 0];
+  if (!table || !table.length) return exp ? "?" : "";
+  let level = 1;
+  for (let i = 1; i < table.length; i++) {
+    if (exp >= table[i]) level = i;
+    else break;
+  }
+  return level;
+}
+
+function render(save) {
+  currentSave = save;
+  currentSlot = save.slot;
+  savBoxIndex = 0;
+  selectedRef = draggedRef = null;
+  $("summary").textContent = `读取成功：${save.format === "decomp" ? "新版对战塔 · 18 箱" : "水银 FC · 25 箱"}，保存计数 ${save.counter}，SAV 盒子宝可梦 ${save.boxes.reduce((n, b) => n + b.length, 0)} 只。`;
+  renderAllBoxes();
+}
+
+function renderAllBoxes() {
+  renderHomeBox();
+  renderSavBox();
+}
+
+function renderHomeBox() {
+  const boxes = homeBoxes;
+  $("homeBoxTitle").textContent = `${homeBoxIndex + 1}（${boxes[homeBoxIndex].filter(Boolean).length}）`;
+  renderBoxGrid($("homeBox"), boxes[homeBoxIndex], "home");
+}
+
+function renderSavBox() {
+  const boxes = currentSave ? currentSave.boxes : makeEmptySaveBoxes();
+  const current = boxes[savBoxIndex] || [];
+  $("savBoxTitle").textContent = `${savBoxIndex + 1}（${current.length}）`;
+  const slots = Array(BOX_CAPACITY).fill(null);
+  for (const mon of current) {
+    if (mon.slot >= 0 && mon.slot < BOX_CAPACITY) slots[mon.slot] = mon;
+  }
+  renderBoxGrid($("savBox"), slots, "sav");
+}
+
+function renderBoxGrid(root, slots, source) {
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < BOX_CAPACITY; i++) {
+    const mon = slots[i];
+      const slot = document.createElement("button");
+      slot.type = "button";
+      slot.className = "slot" + (mon ? "" : " empty");
+      slot.draggable = Boolean(mon && isSupportedSpecies(mon));
+      const conversion = compat.conversionInfo(mon);
+      slot.title = conversion.reason || conversion.notices.join(" ");
+      if (!conversion.reason && conversion.notices.length) slot.classList.add("converting");
+      slot.dataset.source = source;
+      slot.dataset.slot = String(i);
+      if (selectedRef && selectedRef.source === source && selectedRef.slot === i) {
+        slot.classList.add("selected");
+      }
+      if (mon) {
+        if (!isSupportedSpecies(mon)) slot.classList.add("locked");
+        if (mon.shiny) slot.classList.add("shiny");
+        const data = compat.displaySpecies(mon);
+      const icon = document.createElement("img");
+      icon.className = "mon-icon";
+      icon.src = data.icon || data.front || "";
+      icon.alt = data.name || `Species ${mon.species}`;
+      if (icon.getAttribute("src")) slot.appendChild(icon);
+      else { const unknown = document.createElement("span"); unknown.textContent = "？"; unknown.title = data.name; slot.appendChild(unknown); }
+
+      const itemIcon = mon.heldItem ? (gameData.itemIcons && gameData.itemIcons[String(compat.displayId("items", mon.heldItem, mon))]) : "";
+      if (itemIcon) {
+        const held = document.createElement("img");
+        held.className = "item-icon";
+        held.src = itemIcon;
+        held.alt = "";
+        slot.appendChild(held);
+      }
+
+      if (mon.shiny) {
+        const shiny = document.createElement("span");
+        shiny.className = "shiny-mark";
+        shiny.textContent = "✦";
+        slot.appendChild(shiny);
+      }
+
+        const level = document.createElement("span");
+        level.className = "level";
+        level.textContent = mon.level ? `Lv.${mon.level}` : "";
+        slot.appendChild(level);
+        slot.ondragstart = (event) => startDrag(event, source, i);
+        slot.ondragend = () => clearDropTargets();
+      }
+    slot.ondragover = (event) => {
+      event.preventDefault();
+      slot.classList.add("drop-target");
+    };
+    slot.ondragleave = () => slot.classList.remove("drop-target");
+      slot.ondrop = (event) => {
+        event.preventDefault();
+        dropToSlot(source, i);
+      };
+      slot.onclick = () => handleSlotClick(source, i, mon);
+      fragment.appendChild(slot);
+    }
+  root.replaceChildren(fragment);
+}
+
+function handleSlotClick(source, slot, mon) {
+  if (selectedRef) {
+    if (selectedRef.source === source && selectedRef.slot === slot) {
+      selectedRef = null;
+      renderHomeBox();
+      renderSavBox();
+      if (mon) showDetail(mon, source === "home" ? "HOME" : "SAV");
+      return;
+    }
+    moveSelectedToSlot(source, slot);
+    return;
+  }
+
+  if (!mon) return;
+  if (!isSupportedSpecies(mon)) {
+    showDetail(mon, source === "home" ? "HOME" : "SAV");
+    $("summary").textContent = mon.format === "decomp" ? compat.reason(mon) : `${getSpeciesName(mon)} 不在 HOME 数据库中，暂不支持移出或移入。`;
+    return;
+  }
+  selectedRef = { source, slot };
+  renderHomeBox();
+  renderSavBox();
+  showDetail(mon, source === "home" ? "HOME" : "SAV");
+  $("summary").textContent = `已选中 ${getSpeciesName(mon)}，再点击目标格即可移动或交换。` + compat.conversionInfo(mon).notices.join(" ");
+}
+
+function moveSavMonToHome(savSlot, targetSlot = null) {
+  const slot = targetSlot ?? homeBoxes[homeBoxIndex].findIndex(entry => !entry);
+  if (slot < 0) { $("summary").textContent = "当前 HOME 盒子已满。"; return; }
+  draggedRef = {source: "sav", slot: savSlot};
+  dropToSlot("home", slot);
+}
+
+function startDrag(event, source, slot) {
+  selectedRef = null;
+  draggedRef = { source, slot };
+  event.dataTransfer.effectAllowed = source === "sav" ? "copy" : "move";
+  event.currentTarget.classList.add("dragging");
+}
+
+function moveSelectedToSlot(targetSource, targetSlot) {
+  draggedRef = selectedRef;
+  selectedRef = null;
+  dropToSlot(targetSource, targetSlot);
+}
+
+function dropToSlot(targetSource, targetSlot) {
+  clearDropTargets();
+  if (!draggedRef) return;
+  const from = draggedRef;
+  draggedRef = selectedRef = null;
+  try {
+    if (!["home", "sav"].includes(targetSource) || !Number.isInteger(targetSlot) || targetSlot < 0 || targetSlot >= BOX_CAPACITY) throw new Error("目标格无效。");
+    if ((from.source === "sav" || targetSource === "sav") && !currentSave) throw new Error("请先读取 SAV 存档。");
+    const fromMon = from.source === "home" ? homeBoxes[homeBoxIndex][from.slot] : getSavSlotMon(from.slot);
+    const toMon = targetSource === "home" ? homeBoxes[homeBoxIndex][targetSlot] : getSavSlotMon(targetSlot);
+    if (!fromMon || (from.source === targetSource && from.slot === targetSlot)) return;
+    const notices = [];
+    const convert = (mon, target) => !mon ? null : target === "home" ? compat.toHome(mon, notices) : currentSave.format === "decomp" ? compat.toCurrent(mon) : compat.toHome(mon, notices);
+    // Prepare BOTH directions before touching either box, including swaps.
+    const incoming = from.source === targetSource ? cloneMon(fromMon) : convert(fromMon, targetSource);
+    const outgoing = from.source === targetSource ? (toMon && cloneMon(toMon)) : convert(toMon, from.source);
+    const put = (source, slot, mon) => {
+      if (source === "home") homeBoxes[homeBoxIndex][slot] = mon;
+      else { removeSavMon(savBoxIndex, slot); if (mon) setSavSlotMon(savBoxIndex, slot, mon); }
+    };
+    put(from.source, from.slot, outgoing);
+    put(targetSource, targetSlot, incoming);
+    $("summary").textContent = "已移动／交换，点击保存后才会写入 HOME 和 SAV。" + [...new Set(notices)].join(" ");
+  } catch (err) {
+    $("summary").textContent = err.message;
+  }
+  renderAllBoxes();
+}
+
+function getSavSlotMon(slot) {
+  if (!currentSave) return null;
+  return (currentSave.boxes[savBoxIndex] || []).find((mon) => mon.slot === slot) || null;
+}
+
+function removeSavMon(box, slot) {
+  if (!currentSave) return;
+  currentSave.boxes[box] = (currentSave.boxes[box] || []).filter((mon) => mon.slot !== slot);
+}
+
+function setSavSlotMon(box, slot, mon) {
+  if (!currentSave || !mon) return;
+  const nextMon = cloneMon(mon);
+  nextMon.box = box;
+  nextMon.slot = slot;
+  currentSave.boxes[box] = (currentSave.boxes[box] || []).filter((entry) => entry.slot !== slot);
+  currentSave.boxes[box].push(nextMon);
+}
+
+function isSupportedSpecies(mon) {
+  return !mon || (mon.format === "decomp" ? !compat.reason(mon) : Boolean(gameData && gameData.species[String(mon.species)]));
+}
+
+
+async function saveAll() {
+  if (homeIOBusy || homeRecoveryBlocked) return;
+  setHomeBusy(true);
+  try {
+    if (!currentSave || !currentSaveBuffer || !currentSlot) {
+      saveHomeBoxes(homeBoxes);
+      $("summary").textContent = "HOME 已保存；还没有读取 SAV。建议定期导出 HOME 备份。";
+      return;
+    }
+    const out = new Uint8Array(currentSaveBuffer.slice(0));
+    writeSavBoxes(out, currentSave);
+    const verified = parseSave(out.buffer);
+    if (verified.format !== currentSave.format || verified.counter !== currentSave.counter) throw new Error("保存后校验未通过。");
+    if (currentBrowserSave) {
+      if ($("browserSaveVersion").value !== currentBrowserProfile) throw new Error("所选版本已改变，请先读取该版本，或切回正在编辑的版本再保存。" );
+      const homeAfter = JSON.stringify(homeBoxes);
+      const result = await window.AzothBrowserSave.save(new Uint8Array(currentSaveBuffer), out, HOME_KEY, homeStorageSnapshot, homeAfter, currentBrowserProfile);
+      currentSaveBuffer = out.buffer.slice(0);
+      currentSlot = verified.slot;
+      currentSave.slot = verified.slot;
+      if (result.pending) {
+        homeRecoveryBlocked = true;
+        $("summary").textContent = `保存尚未完成：${result.error.message} 请重试恢复，勿清除网站数据。`;
+        showSaveRecovery();
+      } else {
+        homeStorageSnapshot = homeAfter;
+        $("summary").textContent = `HOME 和${currentNativeSave ? "本地文件" : "网页存档"}已保存，可重新打开直接游玩。请从游戏内继续，勿读取旧即时存档。`;
+      }
+      return;
+    }
+    saveHomeBoxes(homeBoxes);
+    if (currentFileHandle) {
+      try {
+        const writable = await currentFileHandle.createWritable();
+        await writable.write(out);
+        await writable.close();
+        currentSaveBuffer = out.buffer.slice(0);
+        currentSlot = verified.slot;
+        currentSave.slot = verified.slot;
+        $("summary").textContent = "HOME 已保存，并已覆盖当前 SAV。建议定期导出 HOME 备份。";
+        return;
+      } catch (err) {
+        $("summary").textContent = `直接覆盖失败，请另存 SAV：${err.message}`;
+      }
+    }
+    await saveAsBytes(out, savedFileName(currentSaveName));
+    currentSaveBuffer = out.buffer.slice(0);
+    currentSlot = verified.slot;
+    currentSave.slot = verified.slot;
+  } catch (err) {
+    $("summary").textContent = `保存失败：${err.message}`;
+  } finally { setHomeBusy(false); }
+}
+
+function writeSavBoxes(out, save) {
+  if (save.format === "decomp") { compat.writeSave(out, save); return; }
+  const sections = cloneSections(currentSlot.sections);
+  const saveBlock2 = sections[0] || new Uint8Array(SECTION_SIZES[0]);
+  const saveBlock1 = concatChunks(sections, [1, 2, 3, 4]);
+  const storage = concatChunks(sections, [5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  const special = new Uint8Array(SECTOR_DATA * 2);
+  if (out.length >= 32 * SECTOR_SIZE) {
+    special.set(out.slice(30 * SECTOR_SIZE, 30 * SECTOR_SIZE + SECTOR_DATA), 0);
+    special.set(out.slice(31 * SECTOR_SIZE, 31 * SECTOR_SIZE + SECTOR_DATA), SECTOR_DATA);
+  }
+
+  clearAllSavBoxBytes(storage, saveBlock1, saveBlock2, special);
+  for (let box = 0; box < STORAGE_BOXES; box++) {
+    for (const mon of save.boxes[box] || []) {
+      writeBoxMonBytes(box, mon.slot, serializeBoxMon(mon), storage, saveBlock1, saveBlock2, special);
+    }
+  }
+
+  splitChunks(saveBlock1, sections, [1, 2, 3, 4]);
+  splitChunks(storage, sections, [5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  sections[0] = saveBlock2.slice(0, SECTION_SIZES[0]);
+  for (let id = 0; id < SLOT_SECTORS; id++) {
+    writeSection(out, currentSlot.baseSector, id, sections[id] || new Uint8Array(SECTION_SIZES[id]));
+  }
+  if (out.length >= 32 * SECTOR_SIZE) {
+    out.set(special.slice(0, SECTOR_DATA), 30 * SECTOR_SIZE);
+    out.set(special.slice(SECTOR_DATA, SECTOR_DATA * 2), 31 * SECTOR_SIZE);
+  }
+}
+
+function cloneSections(sections) {
+  const out = {};
+  for (const [id, data] of Object.entries(sections)) out[Number(id)] = new Uint8Array(data);
+  return out;
+}
+
+function splitChunks(source, sections, ids) {
+  let at = 0;
+  for (const id of ids) {
+    const size = SECTION_SIZES[id] || SECTOR_DATA;
+    sections[id] = source.slice(at, at + size);
+    at += size;
+  }
+}
+
+function writeSection(out, baseSector, id, data) {
+  const sectorIndex = findSectorForSection(out, baseSector, id);
+  if (sectorIndex < 0) return;
+  const off = sectorIndex * SECTOR_SIZE;
+  const size = SECTION_SIZES[id] || SECTOR_DATA;
+  out.set(data.slice(0, size), off);
+  writeU16(out, off + 0xFF6, checksum(out.slice(off, off + size)));
+}
+
+function findSectorForSection(out, baseSector, id) {
+  const dv = new DataView(out.buffer, out.byteOffset, out.byteLength);
+  for (let i = 0; i < SLOT_SECTORS; i++) {
+    const sector = baseSector + i;
+    if (u16(dv, sector * SECTOR_SIZE + 0xFF4) === id) return sector;
+  }
+  return -1;
+}
+
+function checksum(data) {
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    sum = (sum + (data[i] || 0) + ((data[i + 1] || 0) << 8) + ((data[i + 2] || 0) << 16) + ((data[i + 3] || 0) << 24)) >>> 0;
+  }
+  return ((sum >>> 16) + (sum & 0xFFFF)) & 0xFFFF;
+}
+
+function clearAllSavBoxBytes(storage, saveBlock1, saveBlock2, special) {
+  for (let box = 0; box < STORAGE_BOXES; box++) {
+    for (let slot = 0; slot < BOX_CAPACITY; slot++) {
+      writeBoxMonBytes(box, slot, new Uint8Array(BOX_MON_SIZE), storage, saveBlock1, saveBlock2, special);
+    }
+  }
+}
+
+function writeBoxMonBytes(box, slot, bytes, storage, saveBlock1, saveBlock2, special) {
+  let target;
+  let off;
+  if (box < 19) {
+    target = storage;
+    off = STORAGE_BOX_OFFSET + (box * BOX_CAPACITY + slot) * BOX_MON_SIZE;
+  } else if (box < 22) {
+    target = special;
+    off = SPECIAL_BOX20_OFFSET + ((box - 19) * BOX_CAPACITY + slot) * BOX_MON_SIZE;
+  } else if (box < 24) {
+    target = saveBlock1;
+    off = SAVEBLOCK1_BOX23_OFFSET + ((box - 22) * BOX_CAPACITY + slot) * BOX_MON_SIZE;
+  } else {
+    target = saveBlock2;
+    off = SAVEBLOCK2_BOX25_OFFSET + slot * BOX_MON_SIZE;
+  }
+  if (off + BOX_MON_SIZE <= target.length) target.set(bytes.slice(0, BOX_MON_SIZE), off);
+}
+
+function serializeBoxMon(mon) {
+  if (mon.raw && Array.isArray(mon.raw) && mon.raw.length === BOX_MON_SIZE) return Uint8Array.from(mon.raw);
+  throw new Error("HOME 个体不是有效的 58 字节数据，操作已取消。");
+}
+
+function writeU16(data, off, value) {
+  data[off] = value & 0xFF;
+  data[off + 1] = (value >>> 8) & 0xFF;
+}
+
+function downloadBytes(bytes, fileName) {
+  const blob = new Blob([bytes], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  showMobileSaveFallback(blob, fileName, "如果浏览器没有弹出保存窗口，请点这里手动保存。");
+}
+
+async function saveAsBytes(bytes, fileName) {
+  const blob = new Blob([bytes], { type: "application/octet-stream" });
+  const file = new File([blob], fileName, { type: "application/octet-stream" });
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+    try {
+      await navigator.share({ files: [file], title: fileName, text: "宝可梦水银 HOME 存档" });
+      $("summary").textContent = "HOME 已保存，并已打开系统分享/存储面板。建议定期「导出 HOME 备份」。";
+      showMobileSaveFallback(blob, fileName, "如未成功保存，可点这里再试一次。");
+      return;
+    } catch (err) {
+      if (err.name === "AbortError") {
+        showMobileSaveFallback(blob, fileName, "已取消系统保存；如需要导出，请点这里手动保存。");
+        return;
+      }
+      $("summary").textContent = `系统分享保存失败，改用下载链接：${err.message}`;
+    }
+  }
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{
+          description: "GBA Save",
+          accept: { "application/octet-stream": [".sav", ".srm", ".sa1", ".fla"] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(bytes);
+      await writable.close();
+      $("summary").textContent = "HOME 已保存，并已另存为存档文件。建议定期「导出 HOME 备份」。";
+      return;
+    } catch (err) {
+      if (err.name === "AbortError") {
+        showMobileSaveFallback(blob, fileName, "已取消另存为；如需要导出，请点这里手动保存。");
+        return;
+      }
+      $("summary").textContent = `另存为失败，已改为下载导出：${err.message}`;
+    }
+  }
+  downloadBytes(bytes, fileName);
+}
+
+function showMobileSaveFallback(blob, fileName, message) {
+  const panel = $("mobileSave");
+  if (!panel) return;
+  const url = URL.createObjectURL(blob);
+  panel.hidden = false;
+  panel.innerHTML = "";
+  const text = document.createElement("span");
+  text.textContent = message;
+  const lineBreak = document.createElement("br");
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.textContent = `保存 ${fileName}`;
+  const share = document.createElement("button");
+  share.type = "button";
+  share.textContent = "系统分享/存到文件";
+  share.onclick = async () => {
+    const file = new File([blob], fileName, { type: "application/octet-stream" });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ files: [file], title: fileName, text: "宝可梦水银 HOME 存档" });
+    } else {
+      link.click();
+    }
+  };
+  panel.append(text, lineBreak, link, share);
+  setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+}
+
+function savedFileName(name) {
+  return name.replace(/(\.[^.]+)?$/, "_home$1");
+}
+
+function clearDropTargets() {
+  document.querySelectorAll(".drop-target,.dragging").forEach((node) => node.classList.remove("drop-target", "dragging"));
+}
+
+function monSpriteSrc(mon, data) {
+  return (mon.shiny && data.frontShiny) || data.front || data.icon || "";
+}
+
+function showDetail(mon, sourceLabel) {
+  const data = compat.displaySpecies(mon);
+  const conversion = compat.conversionInfo(mon);
+  const abilityId = mon.raw && mon.raw.length === BOX_MON_SIZE
+    ? ((new DataView(Uint8Array.from(mon.raw).buffer).getUint32(54, true) >>> 31) ? data.hiddenAbility : (data.abilities || [])[data.abilities?.[1] ? mon.personality & 1 : 0])
+    : null;
+  const abilityName = mon.format === "decomp" ? (compat.meta.abilities[(compat.meta.species[mon.species]?.abilities || [])[compat.readRecord(mon.raw).abilityNum]] || "未知") : abilityId == null ? "未知" : (gameData.abilities[String(abilityId)] || `Ability ${abilityId}`);
+  const abilityLabel = abilityId != null && abilityId === data.hiddenAbility ? `梦特：${abilityName}` : `特性：${abilityName}`;
+  const item = mon.heldItem ? (compat.displayName("items", mon.heldItem, mon) || `当前版道具 #${mon.heldItem}`) : "没有道具";
+  const typeText = data.types ? data.types.filter(Boolean).join(" / ") : "";
+  const moves = mon.moves.map((move) => compat.displayName("moves", move, mon) || `当前版招式 #${move}`);
+  const evs = mon.evs || { hp: 0, atk: 0, def: 0, spe: 0, spa: 0, spd: 0 };
+  $("detail").classList.remove("empty-detail");
+  $("detail").innerHTML = `
+    ${monSpriteSrc(mon, data) ? `<img class="detail-sprite" src="${escapeHtml(monSpriteSrc(mon, data))}" alt="">` : ""}
+    <div class="detail-body">
+      <strong>${sourceLabel} · ${escapeHtml(data.name || `Species ${mon.species}`)} ${mon.level ? `Lv.${mon.level}` : ""} ${mon.shiny ? `<span class="shiny-badge">闪光</span>` : ""}</strong>
+      <div>${mon.nickname && mon.nickname !== data.name ? `昵称：${escapeHtml(mon.nickname)} · ` : ""}${escapeHtml(typeText)} · ${escapeHtml(item)}</div>
+      <div>${escapeHtml(abilityLabel)}</div>
+      <div>个体值 ${mon.ivs.hp}/${mon.ivs.atk}/${mon.ivs.def}/${mon.ivs.spe}/${mon.ivs.spa}/${mon.ivs.spd} · 努力值 HP${evs.hp}/攻${evs.atk}/防${evs.def}/速${evs.spe}/特攻${evs.spa}/特防${evs.spd}</div>
+      <div class="chips">${moves.map((move) => `<span>${escapeHtml(move)}</span>`).join("")}</div>
+      ${conversion.reason || conversion.notices.length ? `<div class="compat-notice">${escapeHtml(conversion.reason || conversion.notices.join(" "))}</div>` : ""}
+      <div class="detail-actions"><button type="button" id="shareMonBtn">分享这只宝可梦</button></div>
+    </div>
+  `;
+  $("shareMonBtn").disabled = !isSupportedSpecies(mon);
+  $("shareMonBtn").onclick = () => { try { const notices = []; const converted = compat.toHome(mon, notices); openShareDialog(converted, notices); } catch (err) { $("summary").textContent = err.message; } };
+}
+
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(text) {
+  const padded = text.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((text.length + 3) % 4);
+  const binary = atob(padded);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function exportMonKey(mon) {
+  return `PMH1.${bytesToBase64Url(serializeBoxMon(compat.toHome(mon)))}`;
+}
+
+function importMonKey(key) {
+  const clean = key.trim();
+  if (!clean.startsWith("PMH1.")) throw new Error("密钥格式不正确");
+  const bytes = base64UrlToBytes(clean.slice(5));
+  if (bytes.length !== BOX_MON_SIZE) throw new Error("密钥长度不正确");
+  const mon = parseBoxMonCfru(bytes);
+  if (!mon || !mon.species) throw new Error("密钥里没有有效宝可梦");
+  return mon;
+}
+
+function addImportedMon(mon) {
+  if (!isSupportedSpecies(mon)) {
+    $("summary").textContent = `${getSpeciesName(mon)} 不在 HOME 数据库中，暂不支持移入。`;
+    return;
+  }
+  const slot = homeBoxes[homeBoxIndex].findIndex((entry) => !entry);
+  if (slot < 0) {
+    $("summary").textContent = `HOME盒子 ${homeBoxIndex + 1} 已满。`;
+    return;
+  }
+  homeBoxes[homeBoxIndex][slot] = cloneMon(mon);
+  renderHomeBox();
+  showDetail(mon, "HOME");
+  $("summary").textContent = `已通过分享密钥导入 ${getSpeciesName(mon)}，点保存后写入 HOME。`;
+}
+
+function createModal(title) {
+  closeModal();
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<section class="modal"><button class="modal-close" type="button">×</button><h2>${escapeHtml(title)}</h2><div class="modal-body"></div></section>`;
+  overlay.querySelector(".modal-close").onclick = closeModal;
+  overlay.onclick = (event) => { if (event.target === overlay) closeModal(); };
+  document.body.appendChild(overlay);
+  return overlay.querySelector(".modal-body");
+}
+
+function closeModal() {
+  document.querySelectorAll(".modal-overlay").forEach((node) => node.remove());
+}
+
+function openShareDialog(mon, notices = []) {
+  const data = compat.displaySpecies(mon);
+  const key = exportMonKey(mon);
+  const body = createModal("分享宝可梦");
+  body.innerHTML = `
+    ${notices.length ? `<div class="compat-notice">${escapeHtml(notices.join(" "))}</div>` : ""}
+    <canvas id="shareQr" class="share-qr" width="360" height="360"></canvas>
+    <textarea class="share-key" readonly>${escapeHtml(key)}</textarea>
+    <div class="modal-actions">
+      <button type="button" id="copyShareKey">复制密钥</button>
+      <button type="button" id="nativeShareKey">系统分享</button>
+      <button type="button" id="saveShareQr">保存二维码图片</button>
+    </div>
+  `;
+  drawKeyQrPreview($("shareQr"), key, data.icon || data.front || "");
+  $("copyShareKey").onclick = async () => {
+    await navigator.clipboard.writeText(key);
+    $("summary").textContent = "已复制宝可梦分享密钥。";
+  };
+  $("nativeShareKey").onclick = async () => {
+    if (navigator.share) await navigator.share({ title: "宝可梦水银 HOME 分享", text: key });
+  };
+  $("saveShareQr").onclick = () => {
+    $("shareQr").toBlob((blob) => {
+      const a = document.createElement("a");
+      const withKey = new Blob([blob, `\nPMH_KEY:${key}\n`], { type: "image/png" });
+      a.href = URL.createObjectURL(withKey);
+      a.download = `${data.name || "pokemon"}_HOME_QR.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    }, "image/png");
+  };
+}
+
+function drawKeyQrPreview(canvas, key, iconSrc) {
+  const ctx = canvas.getContext("2d");
+  const modules = makeQrMatrixV5L(key);
+  const cells = modules.length;
+  const size = canvas.width;
+  const margin = 10;
+  const cell = Math.floor((size - margin * 2) / cells);
+  const qrSize = cell * cells;
+  const offset = Math.floor((size - qrSize) / 2);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "#111";
+  for (let y = 0; y < cells; y++) {
+    for (let x = 0; x < cells; x++) {
+      if (modules[y][x]) ctx.fillRect(offset + x * cell, offset + y * cell, cell, cell);
+    }
+  }
+  if (iconSrc) {
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(size / 2 - 34, size / 2 - 34, 68, 68);
+      ctx.drawImage(img, size / 2 - 28, size / 2 - 28, 56, 56);
+    };
+    img.src = iconSrc;
+  }
+}
+
+function makeQrMatrixV5L(text) {
+  const version = 5;
+  const size = 17 + version * 4;
+  const dataCodewords = 108;
+  const eccCodewords = 26;
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.length > 106) throw new Error("分享密钥太长，无法生成二维码");
+  const bits = [];
+  const appendBits = (value, length) => {
+    for (let i = length - 1; i >= 0; i--) bits.push((value >>> i) & 1);
+  };
+  appendBits(0x4, 4);
+  appendBits(bytes.length, 8);
+  for (const byte of bytes) appendBits(byte, 8);
+  const maxBits = dataCodewords * 8;
+  appendBits(0, Math.min(4, maxBits - bits.length));
+  while (bits.length % 8) bits.push(0);
+  const data = [];
+  for (let i = 0; i < bits.length; i += 8) data.push(bits.slice(i, i + 8).reduce((n, b) => (n << 1) | b, 0));
+  for (let pad = 0; data.length < dataCodewords; pad ^= 1) data.push(pad ? 0x11 : 0xEC);
+  const codewords = data.concat(rsRemainder(data, eccCodewords));
+  const matrix = Array.from({ length: size }, () => Array(size).fill(false));
+  const reserved = Array.from({ length: size }, () => Array(size).fill(false));
+  const set = (x, y, dark, mark = true) => {
+    if (x < 0 || y < 0 || x >= size || y >= size) return;
+    matrix[y][x] = Boolean(dark);
+    if (mark) reserved[y][x] = true;
+  };
+  const finder = (x, y) => {
+    for (let dy = -1; dy <= 7; dy++) {
+      for (let dx = -1; dx <= 7; dx++) {
+        const xx = x + dx, yy = y + dy;
+        const dark = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6 && (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+        set(xx, yy, dark);
+      }
+    }
+  };
+  finder(0, 0);
+  finder(size - 7, 0);
+  finder(0, size - 7);
+  for (let i = 8; i < size - 8; i++) {
+    set(i, 6, i % 2 === 0);
+    set(6, i, i % 2 === 0);
+  }
+  const align = (cx, cy) => {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) set(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }
+  };
+  align(30, 30);
+  set(8, 4 * version + 9, true);
+  reserveFormat(reserved);
+  let bitIndex = 0;
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right--;
+    for (let vert = 0; vert < size; vert++) {
+      const y = ((right + 1) & 2) === 0 ? size - 1 - vert : vert;
+      for (let dx = 0; dx < 2; dx++) {
+        const x = right - dx;
+        if (reserved[y][x]) continue;
+        const bit = bitIndex < codewords.length * 8 ? (codewords[bitIndex >>> 3] >>> (7 - (bitIndex & 7))) & 1 : 0;
+        const mask = qrMask(0, x, y);
+        set(x, y, Boolean(bit) !== mask, false);
+        bitIndex++;
+      }
+    }
+  }
+  drawFormat(matrix, reserved, 0);
+  return matrix;
+}
+
+function reserveFormat(reserved) {
+  const size = reserved.length;
+  for (let i = 0; i < 9; i++) {
+    reserved[8][i] = true;
+    reserved[i][8] = true;
+  }
+  for (let i = 0; i < 8; i++) {
+    reserved[8][size - 1 - i] = true;
+    reserved[size - 1 - i][8] = true;
+  }
+}
+
+function drawFormat(matrix, reserved, mask) {
+  const size = matrix.length;
+  const bits = qrFormatBits(1, mask);
+  const set = (x, y, i) => {
+    matrix[y][x] = ((bits >>> i) & 1) !== 0;
+    reserved[y][x] = true;
+  };
+  for (let i = 0; i <= 5; i++) set(8, i, i);
+  set(8, 7, 6);
+  set(8, 8, 7);
+  set(7, 8, 8);
+  for (let i = 9; i < 15; i++) set(14 - i, 8, i);
+  for (let i = 0; i < 8; i++) set(size - 1 - i, 8, i);
+  for (let i = 8; i < 15; i++) set(8, size - 15 + i, i);
+}
+
+function qrFormatBits(eclBits, mask) {
+  let data = (eclBits << 3) | mask;
+  let rem = data << 10;
+  for (let i = 14; i >= 10; i--) {
+    if ((rem >>> i) & 1) rem ^= 0x537 << (i - 10);
+  }
+  return ((data << 10) | rem) ^ 0x5412;
+}
+
+function rsRemainder(data, degree) {
+  const generator = rsGenerator(degree);
+  const result = Array(degree).fill(0);
+  for (const byte of data) {
+    const factor = byte ^ result.shift();
+    result.push(0);
+    for (let i = 0; i < degree; i++) result[i] ^= gfMul(generator[i], factor);
+  }
+  return result;
+}
+
+function rsGenerator(degree) {
+  let poly = [1];
+  for (let i = 0; i < degree; i++) {
+    const next = Array(poly.length + 1).fill(0);
+    for (let j = 0; j < poly.length; j++) {
+      next[j] ^= gfMul(poly[j], 1);
+      next[j + 1] ^= gfMul(poly[j], gfPow(2, i));
+    }
+    poly = next;
+  }
+  return poly.slice(1);
+}
+
+function gfPow(x, power) {
+  let out = 1;
+  for (let i = 0; i < power; i++) out = gfMul(out, x);
+  return out;
+}
+
+function gfMul(x, y) {
+  let z = 0;
+  for (let i = 7; i >= 0; i--) {
+    z = (z << 1) ^ ((z >>> 7) * 0x11D);
+    if ((y >>> i) & 1) z ^= x;
+  }
+  return z & 0xFF;
+}
+
+function openImportDialog() {
+  const body = createModal("扫描二维码 / 输入密钥");
+  body.innerHTML = `
+    <label class="qr-file">
+      <input type="file" id="qrImageFile" accept="image/*">
+      <span>选择二维码图片解析</span>
+    </label>
+    <textarea id="importKey" class="share-key" placeholder="粘贴 PMH1. 开头的宝可梦分享密钥"></textarea>
+    <div class="modal-actions">
+      <button type="button" id="importKeyBtn">导入密钥</button>
+    </div>
+    <p class="modal-hint">二维码和密钥完全等价：二维码解析出的内容就是同一个 PMH1 密钥。</p>
+  `;
+  $("qrImageFile").onchange = async (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    $("summary").textContent = "正在解析二维码图片……";
+    try {
+      const key = await decodeQrKeyFromImage(file);
+      $("importKey").value = key;
+      addImportedMon(importMonKey(key));
+      closeModal();
+    } catch (err) {
+      $("summary").textContent = `二维码解析失败：${err.message}`;
+    }
+  };
+  $("importKeyBtn").onclick = () => {
+    try {
+      addImportedMon(importMonKey($("importKey").value));
+      closeModal();
+    } catch (err) {
+      $("summary").textContent = `导入失败：${err.message}`;
+    }
+  };
+}
+
+async function decodeQrKeyFromImage(file) {
+  const embeddedKey = await readEmbeddedQrKey(file);
+  if (embeddedKey) return embeddedKey;
+  const localKey = await decodeOwnQrImage(file);
+  if (localKey) return localKey;
+  if (!("BarcodeDetector" in window)) {
+    throw new Error("当前浏览器不支持本地二维码解析，请复制/粘贴密钥导入。");
+  }
+  const detector = new BarcodeDetector({ formats: ["qr_code"] });
+  let image = null;
+  if ("createImageBitmap" in window) {
+    image = await createImageBitmap(file);
+  } else {
+    image = await loadImageElement(file);
+  }
+  try {
+    const results = await detector.detect(image);
+    if (!results.length) throw new Error("没有检测到二维码，请确认图片是从分享窗口保存的二维码。");
+    const found = results.find((entry) => String(entry.rawValue || "").trim().startsWith("PMH1."));
+    if (!found) throw new Error("图片里没有找到 PMH1 分享密钥。");
+    return String(found.rawValue).trim();
+  } finally {
+    if (image && image.close) image.close();
+  }
+}
+
+async function readEmbeddedQrKey(file) {
+  const buffer = await file.arrayBuffer();
+  const tail = new Uint8Array(buffer.slice(Math.max(0, buffer.byteLength - 512)));
+  let text = "";
+  for (const byte of tail) {
+    if (byte >= 0x20 && byte <= 0x7E) text += String.fromCharCode(byte);
+    else text += "\n";
+  }
+  const match = text.match(/PMH_KEY:(PMH1\.[A-Za-z0-9_-]+)/);
+  return match ? match[1] : "";
+}
+
+async function decodeOwnQrImage(file) {
+  const image = "createImageBitmap" in window ? await createImageBitmap(file) : await loadImageElement(file);
+  try {
+    const size = 37;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(image, 0, 0, size, size);
+    const pixels = ctx.getImageData(0, 0, size, size).data;
+    const dark = Array.from({ length: size }, (_, y) => Array.from({ length: size }, (_, x) => {
+      const i = (y * size + x) * 4;
+      return pixels[i] + pixels[i + 1] + pixels[i + 2] < 384;
+    }));
+    for (let mask = 0; mask < 8; mask++) {
+      const text = decodeOwnQrMatrix(dark, mask);
+      if (text && text.startsWith("PMH1.")) return text;
+    }
+    return "";
+  } finally {
+    if (image && image.close) image.close();
+  }
+}
+
+function decodeOwnQrMatrix(dark, mask) {
+  const size = 37;
+  const reserved = Array.from({ length: size }, () => Array(size).fill(false));
+  const mark = (x, y) => { if (x >= 0 && y >= 0 && x < size && y < size) reserved[y][x] = true; };
+  const finder = (x, y) => {
+    for (let dy = -1; dy <= 7; dy++) {
+      for (let dx = -1; dx <= 7; dx++) mark(x + dx, y + dy);
+    }
+  };
+  finder(0, 0);
+  finder(size - 7, 0);
+  finder(0, size - 7);
+  for (let i = 8; i < size - 8; i++) {
+    mark(i, 6);
+    mark(6, i);
+  }
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) mark(30 + dx, 30 + dy);
+  }
+  mark(8, 4 * 5 + 9);
+  reserveFormat(reserved);
+  const bits = [];
+  for (let right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right--;
+    for (let vert = 0; vert < size; vert++) {
+      const y = ((right + 1) & 2) === 0 ? size - 1 - vert : vert;
+      for (let dx = 0; dx < 2; dx++) {
+        const x = right - dx;
+        if (reserved[y][x]) continue;
+        bits.push(dark[y][x] !== qrMask(mask, x, y) ? 1 : 0);
+      }
+    }
+  }
+  const bytes = [];
+  for (let i = 0; i + 7 < bits.length; i += 8) bytes.push(bits.slice(i, i + 8).reduce((n, b) => (n << 1) | b, 0));
+  const bitAt = (index) => (bytes[index >>> 3] >>> (7 - (index & 7))) & 1;
+  const read = (start, length) => {
+    let value = 0;
+    for (let i = 0; i < length; i++) value = (value << 1) | bitAt(start + i);
+    return value;
+  };
+  if (read(0, 4) !== 0x4) return "";
+  const length = read(4, 8);
+  if (length <= 0 || length > 106) return "";
+  const payload = [];
+  let at = 12;
+  for (let i = 0; i < length; i++) {
+    payload.push(read(at, 8));
+    at += 8;
+  }
+  try {
+    return new TextDecoder().decode(Uint8Array.from(payload));
+  } catch (_) {
+    return "";
+  }
+}
+
+function qrMask(mask, x, y) {
+  switch (mask) {
+    case 0: return (x + y) % 2 === 0;
+    case 1: return y % 2 === 0;
+    case 2: return x % 3 === 0;
+    case 3: return (x + y) % 3 === 0;
+    case 4: return (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0;
+    case 5: return ((x * y) % 2 + (x * y) % 3) === 0;
+    case 6: return (((x * y) % 2 + (x * y) % 3) % 2) === 0;
+    case 7: return (((x + y) % 2 + (x * y) % 3) % 2) === 0;
+    default: return false;
+  }
+}
+
+function loadImageElement(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("图片加载失败"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function makeEmptySaveBoxes() {
+  return Array.from({ length: STORAGE_BOXES }, () => []);
+}
+
+function makeEmptyHomeBoxes() {
+  return Array.from({ length: HOME_BOXES }, () => Array(BOX_CAPACITY).fill(null));
+}
+
+function loadHomeBoxes() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HOME_KEY) || "null");
+    if (Array.isArray(parsed) && parsed.length === HOME_BOXES) return parsed;
+  } catch (_) {}
+  return makeEmptyHomeBoxes();
+}
+
+function saveHomeBoxes(boxes) {
+  localStorage.setItem(HOME_KEY, JSON.stringify(boxes));
+  homeStorageSnapshot = localStorage.getItem(HOME_KEY);
+}
+
+function cloneMon(mon) {
+  return JSON.parse(JSON.stringify(mon));
+}
+
+function getSpeciesName(mon) {
+  return compat.displaySpecies(mon).name || `Species ${mon.species}`;
+}
+
+function changeHomeBox(delta) {
+  selectedRef = draggedRef = null;
+  homeBoxIndex = (homeBoxIndex + delta + HOME_BOXES) % HOME_BOXES;
+  renderHomeBox();
+}
+
+function changeSavBox(delta) {
+  selectedRef = draggedRef = null;
+  const count = currentSave ? currentSave.boxes.length : STORAGE_BOXES;
+  savBoxIndex = (savBoxIndex + delta + count) % count;
+  renderSavBox();
+}
+
+function buildDecodeEntries(charmap) {
+  const out = [];
+  for (const [hex, char] of Object.entries(charmap)) {
+    const bytes = [];
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes.push(Number.parseInt(hex.slice(i, i + 2), 16));
+    }
+    if (bytes.length) out.push({ bytes, char });
+  }
+  out.sort((a, b) => b.bytes.length - a.bytes.length);
+  return out;
+}
+
+function decodeGameText(bytes) {
+  let text = "";
+  for (let i = 0; i < bytes.length;) {
+    if (bytes[i] === 0xFF) break;
+    let matched = null;
+    for (const entry of decodeEntries) {
+      if (i + entry.bytes.length > bytes.length) continue;
+      let ok = true;
+      for (let j = 0; j < entry.bytes.length; j++) {
+        if (bytes[i + j] !== entry.bytes[j]) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) {
+        matched = entry;
+        break;
+      }
+    }
+    if (matched) {
+      text += matched.char;
+      i += matched.bytes.length;
+    } else {
+      i += 1;
+    }
+  }
+  return text.trim();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+
+function loadFile(file) {
+  if (homeIOBusy || homeRecoveryBlocked) return;
+  if (!gameData) {
+    $("summary").textContent = "数据包还没加载完成。";
+    return;
+  }
+  hideMobileSaveFallback();
+  window.beginHomeLoading("\u6b63\u5728\u8bfb\u53d6 SAV\u2026");
+  setHomeBusy(true);
+  return file.arrayBuffer()
+    .then(async (buffer) => {
+      window.updateHomeLoading(35, "SAV \u5df2\u8bfb\u53d6\uff0c\u6b63\u5728\u89e3\u6790\u2026", true);
+      await new Promise(requestAnimationFrame);
+      const parsed = parseSave(buffer);
+      currentSaveBuffer = buffer.slice(0);
+      currentSaveName = file.name || "modified.sav";
+      currentFileHandle = null;
+      setSaveSource(false);
+      return parsed;
+    })
+    .then(async (parsed) => {
+      window.updateHomeLoading(75, "\u6b63\u5728\u663e\u793a\u5b58\u6863\u2026", true);
+      await new Promise(requestAnimationFrame);
+      return render(parsed);
+    })
+    .catch((err) => $("summary").textContent = `读取失败：${err.message}`)
+    .finally(() => { window.finishHomeLoading(); setHomeBusy(false); });
+}
+
+async function openSavWithHandle() {
+  if (homeIOBusy || homeRecoveryBlocked) return;
+  if (!window.showOpenFilePicker) {
+    $("file").click();
+    return;
+  }
+  try {
+    setHomeBusy(true);
+    window.beginHomeLoading("\u6b63\u5728\u6253\u5f00 SAV\u2026");
+    const [handle] = await window.showOpenFilePicker({
+      types: [{
+        description: "GBA Save",
+        accept: { "application/octet-stream": [".sav", ".srm", ".sa1", ".fla"] },
+      }],
+      multiple: false,
+    });
+    const file = await handle.getFile();
+    const buffer = await file.arrayBuffer();
+    window.updateHomeLoading(35, "SAV \u5df2\u8bfb\u53d6\uff0c\u6b63\u5728\u89e3\u6790\u2026", true);
+    await new Promise(requestAnimationFrame);
+    const parsed = parseSave(buffer);
+    window.updateHomeLoading(75, "\u6b63\u5728\u663e\u793a\u5b58\u6863\u2026", true);
+    await new Promise(requestAnimationFrame);
+    hideMobileSaveFallback();
+    currentFileHandle = handle;
+    setSaveSource(false);
+    currentSaveBuffer = buffer.slice(0);
+    currentSaveName = file.name || "modified.sav";
+    render(parsed);
+  } catch (err) {
+    if (err.name !== "AbortError") $("summary").textContent = `读取失败：${err.message}`;
+  } finally { window.finishHomeLoading(); setHomeBusy(false); }
+}
+
+function hideMobileSaveFallback() {
+  const panel = $("mobileSave");
+  if (!panel) return;
+  panel.hidden = true;
+  panel.innerHTML = "";
+}
+
+$("browserSaveBtn").onclick = loadBrowserSave;
+const drop = $("drop");
+drop.onclick = () => openSavWithHandle();
+$("file").onchange = (event) => event.target.files[0] && loadFile(event.target.files[0]);
+drop.ondragover = (event) => { event.preventDefault(); drop.classList.add("drag"); };
+drop.ondragleave = () => drop.classList.remove("drag");
+drop.ondrop = (event) => {
+  event.preventDefault();
+  drop.classList.remove("drag");
+  const file = event.dataTransfer.files[0];
+  if (file) loadFile(file);
+};
+
+$("homePrev").onclick = () => changeHomeBox(-1);
+$("homeNext").onclick = () => changeHomeBox(1);
+$("savPrev").onclick = () => changeSavBox(-1);
+$("savNext").onclick = () => changeSavBox(1);
+$("saveBtn").onclick = saveAll;
+$("importMonBtn").onclick = openImportDialog;
+
+function exportHomeData() {
+  const data = localStorage.getItem(HOME_KEY) || JSON.stringify(makeEmptyHomeBoxes());
+  const bytes = new TextEncoder().encode(data);
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadBytes(bytes, `水银HOME备份_${stamp}.json`);
+  $("summary").textContent = "已导出 HOME 备份（JSON）。换浏览器/清网站数据前请先导出。";
+}
+
+async function importHomeData(file) {
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (!Array.isArray(parsed) || parsed.length !== HOME_BOXES)
+      throw new Error("盒子数量不对，不是有效的 HOME 备份");
+    for (const box of parsed) {
+      if (!Array.isArray(box) || box.length !== BOX_CAPACITY)
+        throw new Error("盒子结构不对，不是有效的 HOME 备份");
+      for (const mon of box) {
+        if (mon !== null && (typeof mon !== "object" || typeof mon.species !== "number"))
+          throw new Error("宝可梦数据格式不对");
+      }
+    }
+    for (const box of parsed) for (const mon of box) if (mon) {
+      if (mon.format === "decomp" || !Array.isArray(mon.raw) || mon.raw.length !== BOX_MON_SIZE) throw new Error("HOME 备份必须使用旧版 58 字节格式。");
+      compat.toHome(mon);
+    }
+    saveHomeBoxes(parsed);
+    homeBoxes = parsed;
+    homeBoxIndex = 0;
+    selectedRef = null;
+    renderHomeBox();
+    $("summary").textContent = "HOME 备份已导入。";
+  } catch (err) {
+    $("summary").textContent = `导入失败：${err.message}`;
+  }
+}
+
+$("exportHomeBtn").onclick = exportHomeData;
+$("importHomeBtn").onclick = () => $("homeDataFile").click();
+$("homeDataFile").onchange = (event) => {
+  const file = event.target.files[0];
+  if (file) importHomeData(file);
+  event.target.value = "";
+};
+
+function showSaveRecovery() {
+  let dialog = document.getElementById("saveRecoveryDialog");
+  if (!dialog) {
+    dialog = document.createElement("dialog"); dialog.id = "saveRecoveryDialog";
+    dialog.innerHTML = '<p>保存尚未完成，请保留网站数据。</p><button type="button">重试恢复</button><p role="status"></p>';
+    document.body.append(dialog);
+    dialog.addEventListener("cancel", event => event.preventDefault());
+    dialog.querySelector("button").onclick = async () => {
+      try {
+        await window.AzothBrowserSave.recover(HOME_KEY, true);
+        location.reload();
+      } catch (error) { dialog.querySelector('[role="status"]').textContent = error.message; }
+    };
+  }
+  document.body.inert = false;
+  if (!dialog.open) dialog.showModal();
+}
+setHomeBusy(true);
+window.homeBrowserReady = window.AzothBrowserSave.recover(HOME_KEY).then(() => {
+  homeStorageSnapshot = localStorage.getItem(HOME_KEY);
+  homeBoxes = loadHomeBoxes();
+  renderAllBoxes();
+}).catch(err => {
+  homeRecoveryBlocked = true;
+  showSaveRecovery();
+  $("summary").textContent = `HOME 恢复未完成：${err.message} 请保留网站数据并刷新重试。`;
+}).finally(() => {
+  setHomeBusy(false);
+  window.finishHomeLoading();
+});
+
+// 配信密钥: ?key=PMH1.xxx 自动导入
+const urlKey = new URLSearchParams(location.search).get("key");
+window.homeBrowserReady.then(() => {
+if (urlKey && !homeRecoveryBlocked) {
+  try {
+    addImportedMon(importMonKey(urlKey));
+    history.replaceState(null, "", location.pathname);
+  } catch (err) {
+    $("summary").textContent = `配信密钥导入失败：${err.message}`;
+  }
+}
+
+});
+})().catch(error => {
+  document.body.inert = false;
+  window.updateHomeLoading(0, "\u52a0\u8f7d\u5931\u8d25");
+  document.getElementById("summary").textContent = `HOME \u52a0\u8f7d\u5931\u8d25\uff1a${error.message}`;
+});
+  </script>
+</body>
+</html>

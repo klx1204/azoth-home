@@ -1,0 +1,17 @@
+{
+  "name": "azoth-home",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pokemon Mercury HOME — standalone build with a Pokemon editor",
+  "scripts": {
+    "build": "python scripts/build.py",
+    "smoke": "python scripts/smoke.py",
+    "test:codec": "node --test tests/codec.test.mjs",
+    "test:browser": "node tests/browser.mjs",
+    "test": "node --test tests/codec.test.mjs && node tests/browser.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1"
+  }
+}
