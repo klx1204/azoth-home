@@ -197,9 +197,10 @@
     const game = bridgeApi.gameData();
     const fields = codec().read(mon.raw);
     const level = codec().levelForExp(game, fields.species, fields.exp) || mon.level || 1;
-    const name = bridgeApi.compat().displayName("species", fields.species, mon) || `#${fields.species}`;
+    const name = bridgeApi.speciesName(mon);
     const isParty = Number.isInteger(mon.azothPartyIndex);
     const lock = isParty ? " disabled" : "";
+    const nicknameHint = mon.nickname ? `留空不修改（当前：${mon.nickname}）` : "留空不修改";
 
     const moves = [0, 1, 2, 3].map((i) => fields.moves[i] || 0);
     const moveSelects = moves.map((move, i) => `
@@ -240,7 +241,7 @@
           <label class="azoth-editor-row">
             <span>昵称</span>
             <input type="text" id="${IDS.nickname}" maxlength="12" value=""
-                   placeholder="${escapeHtml(mon.nickname || "留空则保持原名")}">
+                   placeholder="${escapeHtml(nicknameHint)}">
             <small>留空不修改；最多 9 字节（约 4～5 个全角字）。</small>
           </label>
 
