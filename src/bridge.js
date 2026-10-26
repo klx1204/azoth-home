@@ -8,6 +8,8 @@
    outside of the update helpers.
 */
 let azothLastDetail = null;
+const AZOTH_PARTY_OFFSET = 0x3c;
+const AZOTH_PARTY_SIZE = 100;
 const azothUpstreamShowDetail = showDetail;
 showDetail = function (mon, label) {
   azothLastDetail = mon ? { mon, label } : null;
@@ -38,6 +40,60 @@ window.AzothHomeInternal = Object.freeze({
 
   getLastDetail: () => azothLastDetail,
   getSelectedRef: () => (selectedRef ? { ...selectedRef } : null),
+
+  /* Party lives in SaveBlock1 at 0x3C: six 100-byte records, the first 58 bytes
+     of each reusing the box-mon layout. Only the FC (58-byte) format is
+     supported; the decomp format keeps party data elsewhere. */
+  getParty() {
+    if (!currentSave || currentSave.format !== "fc" || !currentSlot) return null;
+    const section = currentSlot.sections && currentSlot.sections[1];
+    if (!section) return null;
+    const view = new DataView(section.buffer, section.byteOffset, section.byteLength);
+    const party = [];
+    for (let index = 0; index < 6; index++) {
+      const at = AZOTH_PARTY_OFFSET + index * AZOTH_PARTY_SIZE;
+      const mon = parseBoxMonCfru(section.slice(at, at + BOX_MON_SIZE));
+      if (!mon || !mon.species) break;
+      party.push({
+        ...mon,
+        partyIndex: index,
+        level: section[at + 0x50] || mon.level,
+        hp: u16(view, at + 0x52),
+        maxHp: u16(view, at + 0x54),
+      });
+    }
+    return party;
+  },
+
+  /* Party edits are restricted to fields that do not feed the battle stats:
+     species, EXP, IVs, EVs, PID and OTID must stay identical, otherwise the
+     stored level/HP would disagree with the game's calculations. */
+  updatePartyMon(index, raw) {
+    if (!currentSave || currentSave.format !== "fc" || !currentSlot) {
+      throw new Error("当前存档不支持队伍编辑（仅水银 FC 格式）");
+    }
+    const section = currentSlot.sections && currentSlot.sections[1];
+    if (!section) throw new Error("找不到存档的队伍区");
+    if (!Number.isInteger(index) || index < 0 || index >= 6) throw new Error("队伍槽位无效");
+
+    const at = AZOTH_PARTY_OFFSET + index * AZOTH_PARTY_SIZE;
+    const before = parseBoxMonCfru(section.slice(at, at + BOX_MON_SIZE));
+    if (!before || !before.species) throw new Error("该队伍槽位没有宝可梦");
+    const after = parseBoxMonCfru(raw);
+    if (!after || !after.species) throw new Error("编码结果无效，未写入");
+
+    const locked = ["species", "exp", "personality", "otId"];
+    for (const key of locked) {
+      if (before[key] !== after[key]) throw new Error("队伍中的个体不能修改物种、等级或 PID");
+    }
+    for (const key of ["hp", "atk", "def", "spe", "spa", "spd"]) {
+      if (before.ivs[key] !== after.ivs[key]) throw new Error("队伍中的个体不能修改个体值");
+      if (before.evs[key] !== after.evs[key]) throw new Error("队伍中的个体不能修改努力值");
+    }
+
+    section.set(Uint8Array.from(raw).slice(0, BOX_MON_SIZE), at);
+    return { ...after, partyIndex: index };
+  },
 
   parseMon: (raw) => parseBoxMonCfru(raw),
   cloneMon: (mon) => cloneMon(mon),

@@ -63,11 +63,27 @@ python -m http.server 8000 --directory dist
 
 ## 编辑器能力
 
-- 物种、等级、携带道具、4 个招式、个体值、努力值、昵称、梦特槽。
+- **箱子个体**：物种、等级、携带道具、4 个招式、个体值、努力值、昵称、梦特槽。
+- **队伍个体**（仅水银 FC）：读取 SaveBlock1 的 6 个队伍槽并显示在页面顶部；可改招式、
+  携带道具、昵称、梦特槽。物种 / 等级 / 个体值 / 努力值在队伍里锁定，因为队伍的
+  等级和 HP／能力值是存档里的权威数据，改动后需要重算战斗数据（见
+  `tests/party-layout.md`）。
 - 只读：性格、性别、闪光（由 PID / OTID 决定，改动需要重算 PID，暂不提供）。
 - 编辑 HOME 个体：立即写入浏览器 localStorage。
-- 编辑 SAV 个体：在内存中修改，需要再点顶部「保存 HOME 和 SAV」才写回存档。
+- 编辑 SAV 箱子／队伍：在内存中修改，需要再点顶部「保存 HOME 和 SAV」才写回存档。
 - 新版对战塔个体（61 字节）暂不支持编辑，需要先移入 HOME。
+
+## 测试
+
+```bash
+python scripts/build.py
+python scripts/smoke.py
+node --test tests/codec.test.mjs
+node tests/browser.mjs                                   # 用系统 Edge
+AZOTH_TEST_SAV=/path/to/save.sav node tests/party.mjs     # 队伍读写闭环
+```
+
+`tests/party-layout.md` 记录了逆向出来的队伍偏移和验证方法。
 
 ## 上游同步
 

@@ -9,6 +9,7 @@
     "smoke": "python scripts/smoke.py",
     "test:codec": "node --test tests/codec.test.mjs",
     "test:browser": "node tests/browser.mjs",
+    "test:party": "node tests/party.mjs",
     "test": "node --test tests/codec.test.mjs && node tests/browser.mjs"
   },
   "devDependencies": {

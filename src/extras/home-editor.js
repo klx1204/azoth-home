@@ -90,18 +90,78 @@
     }
   }
 
-  function statInputs(prefix, values, max, keys) {
+  function statInputs(prefix, values, max, keys, disabled = false) {
     return keys.map((key) => `
       <label class="azoth-editor-stat">
         <span>${LABELS[key]}</span>
         <input type="number" min="0" max="${max}" step="1" data-key="${key}"
-               id="${prefix}_${key}" value="${values[key] | 0}">
+               id="${prefix}_${key}" value="${values[key] | 0}"${disabled ? " disabled" : ""}>
       </label>`).join("");
   }
 
   function closeEditor() {
     const dialog = el(IDS.dialog);
     if (dialog) dialog.remove();
+  }
+
+  function partyBar() {
+    let bar = document.getElementById("azothPartyBar");
+    if (bar) return bar;
+    const main = document.querySelector("main.home-layout");
+    if (!main || !main.parentNode) return null;
+    bar = document.createElement("section");
+    bar.id = "azothPartyBar";
+    bar.className = "azoth-party";
+    bar.hidden = true;
+    bar.innerHTML = `
+      <div class="azoth-party-head"><strong>队伍</strong><span id="azothPartyCount"></span></div>
+      <div class="azoth-party-slots" id="azothPartySlots"></div>`;
+    main.prepend(bar);
+    return bar;
+  }
+
+  function renderParty() {
+    const bar = partyBar();
+    if (!bar) return;
+    const bridgeApi = bridge();
+    const party = bridgeApi.getParty ? bridgeApi.getParty() : null;
+    if (!party || !party.length) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    const current = bridgeApi.getLastDetail();
+    const active = current?.mon?.azothPartyIndex;
+    const count = el("azothPartyCount");
+    if (count) count.textContent = `${party.length} / 6`;
+
+    const slots = el("azothPartySlots");
+    if (!slots) return;
+    slots.replaceChildren(...party.map((mon, index) => {
+      const data = bridgeApi.compat().displaySpecies(mon);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "azoth-party-slot";
+      if (mon.shiny) button.classList.add("shiny");
+      if (index === active) button.classList.add("selected");
+      const image = document.createElement("img");
+      image.src = data.icon || data.front || "";
+      image.alt = data.name || `Species ${mon.species}`;
+      const level = document.createElement("span");
+      level.className = "azoth-party-level";
+      level.textContent = `Lv.${mon.level || "?"}`;
+      const name = document.createElement("span");
+      name.className = "azoth-party-name";
+      name.textContent = data.name || `#${mon.species}`;
+      button.append(image, level, name);
+      button.title = `${data.name || ""} · HP ${mon.hp}/${mon.maxHp}`;
+      button.addEventListener("click", () => {
+        mon.azothPartyIndex = index;
+        bridgeApi.showDetail(mon, "队伍");
+        renderParty();
+      });
+      return button;
+    }));
   }
 
   function openEditor() {
@@ -127,6 +187,8 @@
     const fields = codec().read(mon.raw);
     const level = codec().levelForExp(game, fields.species, fields.exp) || mon.level || 1;
     const name = bridgeApi.compat().displayName("species", fields.species, mon) || `#${fields.species}`;
+    const isParty = Number.isInteger(mon.azothPartyIndex);
+    const lock = isParty ? " disabled" : "";
 
     const moves = [0, 1, 2, 3].map((i) => fields.moves[i] || 0);
     const moveSelects = moves.map((move, i) => `
@@ -145,7 +207,9 @@
         <header>
           <div>
             <h2>编辑 · ${escapeHtml(name)}</h2>
-            <p>${detail.label === "HOME" ? "HOME 个体：保存后立即写入浏览器本地。" : "SAV 个体：需再点顶部“保存 HOME 和 SAV”才写回存档。"}</p>
+            <p>${isParty ? "队伍个体：等级、物种、个体值、努力值锁定；点“保存 HOME 和 SAV”后写回存档。"
+              : detail.label === "HOME" ? "HOME 个体：保存后立即写入浏览器本地。"
+              : "SAV 个体：需再点顶部“保存 HOME 和 SAV”才写回存档。"}</p>
           </div>
           <button type="button" class="azoth-editor-close" data-action="cancel" aria-label="关闭">×</button>
         </header>
@@ -153,13 +217,13 @@
         <div class="azoth-editor-grid">
           <label class="azoth-editor-row">
             <span>物种</span>
-            <input type="search" id="azothEditorSpeciesSearch" placeholder="搜索物种…">
-            <select id="${IDS.species}">${optionsFor("species", fields.species, null)}</select>
+            <input type="search" id="azothEditorSpeciesSearch" placeholder="搜索物种…"${lock}>
+            <select id="${IDS.species}"${lock}>${optionsFor("species", fields.species, null)}</select>
           </label>
 
           <label class="azoth-editor-row">
             <span>等级</span>
-            <input type="number" id="${IDS.level}" min="1" max="100" step="1" value="${level}">
+            <input type="number" id="${IDS.level}" min="1" max="100" step="1" value="${level}"${lock}>
           </label>
 
           <label class="azoth-editor-row">
@@ -183,12 +247,12 @@
 
           <div class="azoth-editor-row">
             <span>个体值 <small>0–31</small></span>
-            <div class="azoth-editor-stats">${statInputs("azothEditorIv", fields.ivs, 31, IV_KEYS)}</div>
+            <div class="azoth-editor-stats">${statInputs("azothEditorIv", fields.ivs, 31, IV_KEYS, isParty)}</div>
           </div>
 
           <div class="azoth-editor-row">
             <span>努力值 <small>0–255，总和 ≤ 510</small></span>
-            <div class="azoth-editor-stats">${statInputs("azothEditorEv", fields.evs, 255, EV_KEYS)}</div>
+            <div class="azoth-editor-stats">${statInputs("azothEditorEv", fields.evs, 255, EV_KEYS, isParty)}</div>
           </div>
 
           <label class="azoth-editor-check">
@@ -270,24 +334,38 @@
       const evTotal = EV_KEYS.reduce((sum, key) => sum + evs[key], 0);
       if (evTotal > 510) throw new Error(`努力值总和 ${evTotal} 超过 510`);
 
+      const isParty = Number.isInteger(mon.azothPartyIndex);
       const patch = {
-        species,
         heldItem: Number(el(IDS.item).value) || 0,
-        exp,
         moves,
-        ivs,
-        evs,
         hiddenAbility: el(IDS.hidden).checked,
       };
+      if (!isParty) {
+        patch.species = species;
+        patch.exp = exp;
+        patch.ivs = ivs;
+        patch.evs = evs;
+      }
 
       const nickname = el(IDS.nickname).value.trim();
-      if (nickname) {
+      if (nickname && nickname !== (mon.nickname || "").trim()) {
         const used = codecApi.nicknameBytes(nickname, bridgeApi.charmap());
         if (used > 9) throw new Error("昵称过长，请缩短到 9 字节以内");
         patch.nickname = nickname;
       }
 
       const raw = codecApi.apply(mon.raw, patch, { charmap: bridgeApi.charmap() });
+
+      if (isParty) {
+        const next = bridgeApi.updatePartyMon(mon.azothPartyIndex, raw);
+        next.azothPartyIndex = mon.azothPartyIndex;
+        bridgeApi.showDetail(next, "队伍");
+        renderParty();
+        dialog.close();
+        bridgeApi.notify(`队伍中的 ${bridgeApi.speciesName(next)} 已修改，点“保存 HOME 和 SAV”后写回存档。`);
+        return;
+      }
+
       const next = bridgeApi.updateMon(mon, raw);
       bridgeApi.showDetail(next, detail.label);
       dialog.close();
@@ -326,6 +404,13 @@
     injectInto(detail);
   }
 
+  function watchSavBox() {
+    const savBox = document.getElementById("savBox");
+    if (!savBox) return;
+    new MutationObserver(() => renderParty()).observe(savBox, { childList: true });
+    renderParty();
+  }
+
   async function waitForBridge(timeout = 30000) {
     const started = Date.now();
     while (!window.AzothHomeInternal) {
@@ -339,6 +424,7 @@
     await waitForBridge();
     await (window.homeBrowserReady || Promise.resolve());
     watchDetail();
+    watchSavBox();
     document.documentElement.dataset.azothHomeEditor = "1";
     console.info("[azoth-home] editor ready");
   }

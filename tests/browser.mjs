@@ -67,7 +67,10 @@ const page = await context.newPage();
 
 const consoleErrors = [];
 page.on("console", (message) => {
-  if (message.type() === "error") consoleErrors.push(message.text());
+  if (message.type() !== "error") return;
+  const url = message.location()?.url ?? "";
+  if (/favicon/i.test(url) || /favicon/i.test(message.text())) return;
+  consoleErrors.push(`${message.text()} @ ${url}`);
 });
 page.on("pageerror", (error) => consoleErrors.push(String(error)));
 
