@@ -27,7 +27,9 @@ REQUIRED_IDS = [
 
 INJECTED = [
     "extras/home-editor.css",
+    "extras/data/pmh1-data.js",
     "extras/mon-codec.js",
+    "extras/pmh1.js",
     "extras/showdown.js",
     "extras/home-editor.js",
 ]
@@ -108,7 +110,8 @@ def main() -> int:
     check((DIST / "play" / "native-save.js").is_file(), "play/native-save.js is missing")
     check((DIST / "extras" / "mon-codec.js").is_file(), "extras/mon-codec.js is missing")
     check((DIST / "extras" / "showdown.js").is_file(), "extras/showdown.js is missing")
-    check((DIST / "extras" / "data" / "moves-en.json").is_file(), "extras/data/moves-en.json is missing")
+    check((DIST / "extras" / "pmh1.js").is_file(), "extras/pmh1.js is missing")
+    check((DIST / "extras" / "data" / "pmh1-data.js").is_file(), "extras/data/pmh1-data.js is missing")
     check((DIST / "index.html").is_file(), "dist/index.html landing page is missing")
     check((DIST / "home" / "index.html").is_file(), "dist/home/index.html redirect page is missing")
 

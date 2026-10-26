@@ -141,13 +141,25 @@ try {
     level: document.getElementById("azothEditorLevel").value,
     speciesEditor: Boolean(document.getElementById("azothEditorSpecies")),
     ivHp: document.getElementById("azothEditorIv_hp").value,
-    optionCount: document.getElementById("azothEditorMove0").options.length,
-    itemSample: document.getElementById("azothEditorItem").options[1]?.textContent ?? "",
+    natures: document.getElementById("azothEditorNature").options.length,
+    abilities: document.getElementById("azothEditorAbility").options.length,
+    balls: document.getElementById("azothEditorBall").options.length,
+    moveInput: document.getElementById("azothEditorMove0").tagName,
   }));
   check(!form.speciesEditor, "species editor should not exist");
   check(form.ivHp === "31", `hp IV field shows ${form.ivHp}`);
-  check(form.optionCount > 900, `move list only has ${form.optionCount} options`);
-  check(/（[A-Z_]+）/.test(form.itemSample) || /[A-Z_]{3,}/.test(form.itemSample), `item label is not bilingual: ${form.itemSample}`);
+  check(form.natures === 25, `nature list has ${form.natures} options`);
+  check(form.abilities > 0, "ability list is empty");
+  check(form.balls > 10, `ball list has only ${form.balls} options`);
+  check(form.moveInput === "INPUT", `move field is ${form.moveInput}, expected a search input`);
+
+  await page.fill("#azothEditorMove0", "十万");
+  await page.waitForSelector(".azoth-picker-menu:not([hidden]) button", { timeout: 3000 });
+  const menuCount = await page.locator(".azoth-picker-menu:not([hidden]) button").count();
+  check(menuCount > 0, "move search returned no results");
+  await page.click(".azoth-picker-menu:not([hidden]) button");
+  const pickedMove = await page.evaluate(() => Number(document.getElementById("azothEditorMove0").dataset.id));
+  check(pickedMove > 0, "picked move has no id");
 
   await page.fill("#azothEditorLevel", "50");
   await page.click('.azoth-editor button[data-action="save"]');
@@ -166,7 +178,7 @@ try {
   });
   check(after.level === 50, `level after save is ${after.level}`);
   check(after.species === 1, `species changed unexpectedly to ${after.species}`);
-  check(after.moves[0] === 33, `move 1 changed unexpectedly to ${after.moves[0]}`);
+  check(after.moves[0] === pickedMove, `move 1 is ${after.moves[0]}, expected ${pickedMove}`);
   check(after.ivs.hp === 31, `hp IV changed unexpectedly to ${after.ivs.hp}`);
   check(after.nickname === "测试", `nickname is ${JSON.stringify(after.nickname)}`);
   check(after.rawLength === 58, `raw length is ${after.rawLength}`);

@@ -1,14 +1,14 @@
 /* Pokémon Showdown text import.
 
    Adds an "导入 Showdown" button between the share-key button and the save
-   button. Text is parsed as Showdown's export format; species / item / move
-   names may be English or Chinese. Each parsed set is written into the first
-   empty HOME slot.
+   button. Each parsed set becomes a 58-byte mon written into the first empty
+   HOME slot.
 
-   What is imported: species, held item, level, EVs, IVs, up to 4 moves, nickname.
-   What is NOT imported: ability, nature, gender, shininess, Tera type. Those are
-   derived from PID/OTID, which are copied from a template mon already in the
-   boxes (so the new mon inherits the template's nature/gender/shininess).
+   Imported: species, nickname, held item, ability, level, nature, gender,
+   shininess, ball, EVs, IVs, up to 4 moves.
+
+   Everything is built on a template mon already in the boxes, so OT name, OTID,
+   language and tera type are inherited from that template.
 */
 (function () {
   "use strict";
@@ -19,65 +19,7 @@
   const STAT_KEYS = ["hp", "atk", "def", "spa", "spd", "spe"];
 
   const bridge = () => window.AzothHomeInternal;
-  const codec = () => window.AzothMonCodec;
-
-  let moveNamesPromise = null;
-  let indexes = null;
-
-  function normalize(name) {
-    return String(name ?? "").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, "");
-  }
-
-  function moveNames() {
-    if (!moveNamesPromise) {
-      moveNamesPromise = fetch("extras/data/moves-en.json")
-        .then((response) => (response.ok ? response.json() : {}))
-        .catch(() => ({}));
-    }
-    return moveNamesPromise;
-  }
-
-  function put(map, key, value) {
-    const normalized = normalize(key);
-    if (normalized && !map.has(normalized)) map.set(normalized, value);
-  }
-
-  async function buildIndexes() {
-    if (indexes) return indexes;
-    const game = bridge().gameData();
-    const compat = bridge().compat();
-    const englishMoves = await moveNames();
-
-    const species = new Map();
-    for (const [id, entry] of Object.entries(game.species || {})) {
-      const number = Number(id);
-      if (!number || !entry) continue;
-      const macro = String(entry.macro || "").replace(/^SPECIES_/, "");
-      if (macro) put(species, macro, number);
-      if (entry.name) put(species, entry.name, number);
-    }
-
-    const moves = new Map();
-    for (const [id, zh] of Object.entries(game.moves || {})) {
-      const number = Number(id);
-      if (!number) continue;
-      if (zh) put(moves, zh, number);
-      const en = englishMoves[id];
-      if (en) put(moves, en, number);
-    }
-
-    const items = new Map();
-    for (const [id, macro] of Object.entries(game.items || {})) {
-      const number = Number(id);
-      if (!number) continue;
-      if (macro) put(items, macro, number);
-      const zh = compat?.meta?.names?.items?.[id];
-      if (zh) put(items, zh, number);
-    }
-
-    indexes = { species, moves, items };
-    return indexes;
-  }
+  const pmh1 = () => window.AzothPmh1;
 
   function statKey(name) {
     switch (name.toLowerCase()) {
@@ -102,7 +44,7 @@
     return out;
   }
 
-  function parseOne(block) {
+  function parseSet(block) {
     const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
     if (!lines.length) return null;
 
@@ -114,18 +56,37 @@
       head = head.slice(0, at).trim();
     }
 
+    let speciesName = head;
     let nickname = "";
-    const paren = head.match(/^(.*?)\s*\((.+)\)\s*$/);
+    let gender = null;
+    const paren = head.match(/^(.*?)\s*\((.+?)\)\s*$/);
     if (paren) {
-      head = paren[1].trim();
-      nickname = paren[2].trim();
+      const inner = paren[2].trim();
+      if (/^(m|male|雄|公)$/i.test(inner)) { speciesName = paren[1].trim(); gender = 0; }
+      else if (/^(f|female|雌|母)$/i.test(inner)) { speciesName = paren[1].trim(); gender = 1; }
+      else if (pmh1().lookupSpecies(inner)) { nickname = paren[1].trim(); speciesName = inner; }
+      else { speciesName = paren[1].trim(); nickname = inner; }
     }
-    if (!head) return null;
+    if (!speciesName) return null;
 
-    const set = { speciesName: head, itemName, nickname, level: 100, moves: [], ivs: {}, evs: {} };
+    const set = {
+      speciesName, itemName, nickname, gender,
+      abilityName: "", natureName: "", ballName: "",
+      level: 100, shiny: false, moves: [], ivs: {}, evs: {},
+    };
+
     for (const line of lines.slice(1)) {
       let match;
-      if ((match = line.match(/^Level:\s*(\d+)/i))) set.level = Number(match[1]);
+      if (/Nature$/i.test(line) && !line.includes(":")) {
+        set.natureName = line.replace(/\s*Nature$/i, "").trim();
+      } else if ((match = line.match(/^Ability:\s*(.+)/i))) set.abilityName = match[1].trim();
+      else if ((match = line.match(/^Level:\s*(\d+)/i))) set.level = Number(match[1]);
+      else if ((match = line.match(/^Shiny:\s*(.+)/i))) set.shiny = /^(yes|true|1|是|闪光)$/i.test(match[1].trim());
+      else if ((match = line.match(/^Gender:\s*(.+)/i))) {
+        const value = match[1].trim();
+        if (/^(m|male|雄|公)$/i.test(value)) set.gender = 0;
+        else if (/^(f|female|雌|母)$/i.test(value)) set.gender = 1;
+      } else if ((match = line.match(/^Ball:\s*(.+)/i))) set.ballName = match[1].trim();
       else if ((match = line.match(/^EVs:\s*(.+)/i))) set.evs = parseSpread(match[1]);
       else if ((match = line.match(/^IVs:\s*(.+)/i))) set.ivs = parseSpread(match[1]);
       else if ((match = line.match(/^-\s*(.+)$/))) set.moves.push(match[1].trim());
@@ -135,41 +96,60 @@
 
   function parseText(text) {
     return text.replace(/\r/g, "").split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean)
-      .map(parseOne).filter(Boolean);
+      .map(parseSet).filter(Boolean);
   }
 
   function templateMon() {
-    const lengths = (mon) => mon && Array.isArray(mon.raw) && mon.raw.length === 58;
+    const ok = (mon) => mon && Array.isArray(mon.raw) && mon.raw.length === 58;
     for (const box of bridge().getHomeBoxes()) {
-      for (const mon of box) if (lengths(mon)) return mon;
+      for (const mon of box) if (ok(mon)) return mon;
     }
     const sav = bridge().getSavBoxes();
     if (sav) {
       for (const box of sav) {
-        for (const mon of box) if (lengths(mon)) return mon;
+        for (const mon of box) if (ok(mon)) return mon;
       }
     }
     return null;
   }
 
-  function toRaw(set, index, template) {
-    const game = bridge().gameData();
-    const api = codec();
-
-    const species = index.species.get(normalize(set.speciesName));
+  function buildFromSet(set, template) {
+    const api = pmh1();
+    const species = api.lookupSpecies(set.speciesName);
     if (!species) throw new Error(`找不到物种：${set.speciesName}`);
 
-    const heldItem = set.itemName ? (index.items.get(normalize(set.itemName)) || 0) : 0;
-    const moves = [];
-    for (const name of set.moves.slice(0, 4)) {
-      const move = index.moves.get(normalize(name));
-      if (!move) throw new Error(`找不到招式：${name}`);
-      moves.push(move);
+    const row = api.data.species[species];
+    const [en, zh, growth, a0, a1, hidden, genderRatio, baseFriendship] = row;
+
+    let abilityId = a0;
+    if (set.abilityName) {
+      abilityId = api.lookupAbility(set.abilityName);
+      if (abilityId == null) throw new Error(`找不到特性：${set.abilityName}`);
+      if (![a0, a1, hidden].includes(abilityId)) throw new Error(`${zh} 没有特性「${set.abilityName}」`);
     }
 
-    const level = Math.max(1, Math.min(100, set.level || 100));
-    const exp = api.expForLevel(game, species, level);
-    if (exp == null) throw new Error("无法计算经验值");
+    const nature = set.natureName ? api.lookupNature(set.natureName) : 0;
+    if (nature == null) throw new Error(`找不到性格：${set.natureName}`);
+
+    let gender = set.gender;
+    if (gender == null) {
+      if (genderRatio === 255) gender = 2;
+      else if (genderRatio === 254) gender = 1;
+      else if (genderRatio === 0) gender = 0;
+      else gender = genderRatio >= 128 ? 1 : 0;
+    }
+
+    const ball = set.ballName ? api.lookupBall(set.ballName) : (template.raw ? template.raw[38] || 4 : 4);
+    if (ball == null) throw new Error(`找不到球种：${set.ballName}`);
+
+    const heldItem = set.itemName ? api.lookupItem(set.itemName) : 0;
+    if (heldItem == null) throw new Error(`找不到道具：${set.itemName}`);
+
+    const moves = set.moves.slice(0, 4).map((name) => {
+      const id = api.lookupMove(name);
+      if (id == null) throw new Error(`找不到招式：${name}`);
+      return id;
+    });
 
     const ivs = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
     for (const key of STAT_KEYS) if (set.ivs[key] != null) ivs[key] = Math.max(0, Math.min(31, set.ivs[key]));
@@ -177,11 +157,26 @@
     for (const key of STAT_KEYS) if (set.evs[key] != null) evs[key] = Math.max(0, Math.min(255, set.evs[key]));
     if (STAT_KEYS.reduce((sum, key) => sum + evs[key], 0) > 510) throw new Error("努力值总和超过 510");
 
-    const nickname = set.nickname || game.species[String(species)]?.name || "";
-    return {
-      raw: api.apply(template.raw, { species, exp, heldItem, moves, ivs, evs, nickname }, { charmap: bridge().charmap() }),
-      name: nickname,
-    };
+    const nickname = set.nickname || (zh || "");
+    const level = Math.max(1, Math.min(100, set.level || 100));
+
+    const built = api.buildMon({
+      species,
+      level,
+      nature,
+      gender,
+      shiny: set.shiny,
+      abilityId,
+      ball,
+      heldItem,
+      moves,
+      ivs,
+      evs,
+      nickname,
+      friendship: baseFriendship,
+    }, template.raw, bridge().charmap());
+
+    return { raw: built.raw, name: nickname || zh };
   }
 
   function firstEmpty() {
@@ -201,12 +196,11 @@
     const template = templateMon();
     if (!template) throw new Error("HOME 里没有可用的模板个体。请先读取存档，或先在 HOME 放一只宝可梦。");
 
-    const indexesReady = indexes;
     const imported = [];
     const failed = [];
     for (const set of sets) {
       try {
-        const built = toRaw(set, indexesReady, template);
+        const built = buildFromSet(set, template);
         const target = firstEmpty();
         if (!target) throw new Error("HOME 箱子已满");
         bridge().replaceHomeMon(target.box, target.slot, built.raw);
@@ -239,7 +233,12 @@
           <button type="button" class="azoth-editor-close" data-action="cancel" aria-label="关闭">×</button>
         </header>
         <textarea id="${TEXT}" rows="12" spellcheck="false" placeholder="Pikachu @ Light Ball
+Ability: Static
 Level: 50
+Timid Nature
+Shiny: Yes
+Gender: F
+Ball: Great Ball
 EVs: 252 SpA / 4 SpD / 252 Spe
 IVs: 0 Atk
 - Thunderbolt
@@ -247,8 +246,8 @@ IVs: 0 Atk
 - Hidden Power Ice
 - Volt Switch"></textarea>
         <p class="azoth-editor-note">
-          识别物种、道具、等级、EVs、IVs、招式和昵称，名称支持中英文。
-          特性、性格、性别、闪光不会导入——新个体沿用模板个体的 PID。
+          识别物种、昵称、道具、特性、等级、性格、性别、闪光、球种、EVs、IVs 和招式，名称支持中英文。
+          训练家信息（OT 名、表里 ID、语言）沿用模板个体。
         </p>
         <p class="azoth-editor-error" id="${ERROR}" role="alert"></p>
         <footer>
@@ -297,12 +296,11 @@ IVs: 0 Atk
 
   async function boot() {
     const started = Date.now();
-    while (!window.AzothHomeInternal) {
-      if (Date.now() - started > 30000) throw new Error("bridge did not appear");
+    while (!window.AzothHomeInternal || !window.AzothPmh1) {
+      if (Date.now() - started > 30000) throw new Error("editor modules did not appear");
       await new Promise((done) => setTimeout(done, 50));
     }
     await (window.homeBrowserReady || Promise.resolve());
-    await buildIndexes();
     addButton();
   }
 

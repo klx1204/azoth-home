@@ -1,14 +1,13 @@
 /* In-page Pokemon editor for 水银 HOME.
 
-   Runs outside upstream's closure. It talks to the page only through
-   window.AzothHomeInternal (injected bridge) and window.AzothMonCodec, and it
-   never replaces the upstream markup: it watches #detail and appends one extra
-   action button.
+   Runs outside upstream's closure. It talks to the page through
+   window.AzothHomeInternal (bridge), window.AzothMonCodec and window.AzothPmh1
+   (data + PID search + 58-byte writer), and never replaces upstream markup.
 
-   Supported: level, held item, 4 moves, IVs, EVs, nickname. Species, nature,
-   gender, shininess and ability stay read-only (PID/OTID derived). Party
-   members additionally lock level/IV/EV because their battle stats live in the
-   save and would go stale.
+   Box mons: level, nature, gender, shiny, ability, ball, item, 4 moves, IVs, EVs,
+   nickname. Party mons lock level / nature / gender / shiny / IV / EV because the
+   saved battle stats would go stale; ability (PID slot), ball, item, moves and
+   nickname remain editable.
 */
 (function () {
   "use strict";
@@ -17,6 +16,11 @@
     dialog: "azothEditorDialog",
     nickname: "azothEditorNickname",
     level: "azothEditorLevel",
+    nature: "azothEditorNature",
+    gender: "azothEditorGender",
+    shiny: "azothEditorShiny",
+    ability: "azothEditorAbility",
+    ball: "azothEditorBall",
     item: "azothEditorItem",
     moveSearch: "azothEditorMoveSearch",
     error: "azothEditorError",
@@ -25,12 +29,19 @@
   const IV_KEYS = ["hp", "atk", "def", "spe", "spa", "spd"];
   const EV_KEYS = ["hp", "atk", "def", "spe", "spa", "spd"];
   const LABELS = { hp: "HP", atk: "攻击", def: "防御", spe: "速度", spa: "特攻", spd: "特防" };
-  const MOVE_SLOTS = 4;
+  const NATURE_EFFECT = [
+    "无修正", "+攻-防", "+攻-速", "+攻-特攻", "+攻-特防",
+    "+防-攻", "无修正", "+防-速", "+防-特攻", "+防-特防",
+    "+速-攻", "+速-防", "无修正", "+速-特攻", "+速-特防",
+    "+特攻-攻", "+特攻-防", "+特攻-速", "无修正", "+特攻-特防",
+    "+特防-攻", "+特防-防", "+特防-速", "+特防-特攻", "无修正",
+  ];
 
-  let optionCache = new Map();
+  let pickerCache = new Map();
 
   const bridge = () => window.AzothHomeInternal;
   const codec = () => window.AzothMonCodec;
+  const pmh1 = () => window.AzothPmh1;
 
   function el(id) {
     return document.getElementById(id);
@@ -46,61 +57,123 @@
     bridge().notify(text);
   }
 
-  /* Items have a Chinese name in compat.meta.names.items and an English macro in
-     gameData.items, so the option shows both and the filter matches either.
-     Moves only ship Chinese names upstream; the id is appended so a numeric
-     search still works. */
-  function displayLabel(kind, id) {
-    const key = String(id);
-    if (kind === "items") {
-      const zh = bridge().compat()?.meta?.names?.items?.[key];
-      const en = bridge().gameData()?.items?.[key];
-      if (zh && en && zh !== en) return `${zh}（${en}）`;
-      return zh || en || `#${id}`;
-    }
+  // ---------- search picker ----------
+  function pickerItems(kind) {
+    if (pickerCache.has(kind)) return pickerCache.get(kind);
+    const api = pmh1();
+    let items;
     if (kind === "moves") {
-      const zh = bridge().gameData()?.moves?.[key];
-      return zh ? `${zh}（#${id}）` : `#${id}`;
+      items = api.moveList.filter((move) => move.id).map((move) => ({
+        id: move.id,
+        label: move.en ? `${move.zh}（${move.en}）` : `${move.zh}（#${move.id}）`,
+        hint: `#${move.id}`,
+        search: `${move.zh} ${move.en} ${move.id}`.toLowerCase(),
+      }));
+    } else {
+      items = Object.entries(api.data.items)
+        .filter(([id]) => Number(id))
+        .map(([id, row]) => ({
+          id: Number(id),
+          label: row[1] ? `${row[1]}（${row[0]}）` : String(row[0]),
+          hint: "",
+          search: `${row[1] || ""} ${row[0] || ""} ${id}`.toLowerCase(),
+        }));
     }
-    return `#${id}`;
+    pickerCache.set(kind, items);
+    return items;
   }
 
-  function rowsFor(kind) {
-    const cached = optionCache.get(kind);
-    if (cached) return cached;
-    const game = bridge().gameData();
-    const rows = [];
-    const table = kind === "items" ? game.items : game.moves;
-    for (const id of Object.keys(table || {})) {
-      const n = Number(id);
-      if (!n) continue;
-      rows.push([n, displayLabel(kind, n)]);
+  function searchItems(items, query) {
+    const text = query.trim();
+    if (!text) return [];
+    const lower = text.toLowerCase();
+    const numeric = /^\d+$/.test(text) ? Number(text) : null;
+    const out = [];
+    for (const item of items) {
+      if (numeric !== null && item.id === numeric) { out.push(item); continue; }
+      if (item.label.includes(text)) { out.push(item); continue; }
+      if (item.search.includes(lower)) out.push(item);
+      if (out.length >= 30) break;
     }
-    rows.sort((a, b) => a[0] - b[0]);
-    optionCache.set(kind, rows);
-    return rows;
+    return out.slice(0, 30);
   }
 
-  function optionsFor(kind, selected, noneLabel) {
-    const rows = rowsFor(kind);
-    const parts = [];
-    if (noneLabel != null) {
-      parts.push(`<option value="0"${selected ? "" : " selected"}>${escapeHtml(noneLabel)}</option>`);
-    }
-    for (const [id, name] of rows) {
-      parts.push(`<option value="${id}"${id === selected ? " selected" : ""}>${escapeHtml(name)}</option>`);
-    }
-    return parts.join("");
+  function pickerField(id, label, items, selectedId, placeholder) {
+    const selected = items.find((item) => item.id === selectedId);
+    const dataId = selected ? ` data-id="${selected.id}"` : "";
+    return `
+      <label class="azoth-editor-row azoth-picker" data-picker="${id}">
+        <span>${label}</span>
+        <input type="text" id="${id}" autocomplete="off" spellcheck="false"${dataId}
+               value="${escapeHtml(selected ? selected.label : "")}"
+               placeholder="${escapeHtml(placeholder || "搜索…")}">
+        <div class="azoth-picker-menu" hidden></div>
+      </label>`;
   }
 
-  function filterSelect(select, query) {
-    const needle = query.trim().toLowerCase();
-    for (const option of select.options) {
-      if (option.value === "0") continue;
-      option.hidden = Boolean(needle) && !option.textContent.toLowerCase().includes(needle);
-    }
+  function bindPicker(field) {
+    const input = field.querySelector("input");
+    const menu = field.querySelector(".azoth-picker-menu");
+    const items = pickerItems(field.dataset.picker.startsWith("azothEditorMove") ? "moves" : "items");
+    let current = [];
+
+    const close = () => { menu.hidden = true; };
+    const choose = (item) => {
+      input.value = item.label;
+      input.dataset.id = String(item.id);
+      close();
+    };
+    const render = (list) => {
+      current = list;
+      menu.innerHTML = list.length
+        ? list.map((item, index) => {
+          const hint = item.hint ? `<small>${escapeHtml(item.hint)}</small>` : "";
+          return `<button type="button" data-index="${index}"><span>${escapeHtml(item.label)}</span>${hint}</button>`;
+        }).join("")
+        : `<div class="azoth-picker-empty">没有匹配项</div>`;
+      const rect = input.getBoundingClientRect();
+      menu.style.left = `${rect.left}px`;
+      menu.style.top = `${rect.bottom + 4}px`;
+      menu.style.width = `${rect.width}px`;
+      menu.hidden = false;
+    };
+
+    input.addEventListener("input", () => {
+      delete input.dataset.id;
+      if (!input.value.trim()) { close(); return; }
+      render(searchItems(items, input.value));
+    });
+    input.addEventListener("focus", () => {
+      if (input.value.trim()) render(searchItems(items, input.value));
+    });
+    input.addEventListener("blur", () => setTimeout(close, 200));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+      if (event.key === "Enter" && current[0]) {
+        event.preventDefault();
+        choose(current[0]);
+      }
+    });
+    menu.addEventListener("mousedown", (event) => event.preventDefault());
+    menu.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-index]");
+      if (!button) return;
+      const item = current[Number(button.dataset.index)];
+      if (item) choose(item);
+    });
   }
 
+  function pickerValue(id) {
+    const input = el(id);
+    if (!input) return 0;
+    if (input.dataset.id != null) return Number(input.dataset.id);
+    const text = input.value.trim();
+    if (!text) return 0;
+    const api = pmh1();
+    return (id.includes("Move") ? api.lookupMove(text) : api.lookupItem(text)) ?? null;
+  }
+
+  // ---------- shared bits ----------
   function statInputs(prefix, values, max, keys, disabled = false) {
     return keys.map((key) => `
       <label class="azoth-editor-stat">
@@ -111,8 +184,7 @@
   }
 
   function closeEditor() {
-    const dialog = el(IDS.dialog);
-    if (dialog) dialog.remove();
+    el(IDS.dialog)?.remove();
   }
 
   function partyBar() {
@@ -149,23 +221,23 @@
     const slots = el("azothPartySlots");
     if (!slots) return;
     slots.replaceChildren(...party.map((mon, index) => {
-      const data = bridgeApi.compat().displaySpecies(mon);
+      const info = pmh1().readMon(mon.raw);
       const button = document.createElement("button");
       button.type = "button";
       button.className = "azoth-party-slot";
-      if (mon.shiny) button.classList.add("shiny");
+      if (info.shiny) button.classList.add("shiny");
       if (index === active) button.classList.add("selected");
       const image = document.createElement("img");
-      image.src = data.icon || data.front || "";
-      image.alt = data.name || `Species ${mon.species}`;
+      image.src = `pokemon/icons/${String(mon.species).padStart(4, "0")}.png`;
+      image.alt = pmh1().speciesName(mon.species);
       const level = document.createElement("span");
       level.className = "azoth-party-level";
       level.textContent = `Lv.${mon.level || "?"}`;
       const name = document.createElement("span");
       name.className = "azoth-party-name";
-      name.textContent = data.name || `#${mon.species}`;
+      name.textContent = pmh1().speciesName(mon.species);
       button.append(image, level, name);
-      button.title = `${data.name || ""} · HP ${mon.hp}/${mon.maxHp}`;
+      button.title = `${pmh1().speciesName(mon.species)} · HP ${mon.hp}/${mon.maxHp}`;
       button.addEventListener("click", () => {
         mon.azothPartyIndex = index;
         bridgeApi.showDetail(mon, "队伍");
@@ -175,6 +247,7 @@
     }));
   }
 
+  // ---------- editor ----------
   function openEditor() {
     const bridgeApi = bridge();
     const detail = bridgeApi.getLastDetail();
@@ -187,29 +260,42 @@
       notify("新版对战塔个体（61 字节）暂不支持编辑，请先移入 HOME 后再编辑。");
       return;
     }
-    if (!window.AzothMonCodec) {
-      notify("编辑器未加载，请刷新页面重试。");
+    if (!window.AzothPmh1 || !window.AzothMonCodec) {
+      notify("编辑器数据未加载，请刷新页面重试。");
       return;
     }
 
     closeEditor();
 
-    const game = bridgeApi.gameData();
-    const fields = codec().read(mon.raw);
-    const level = codec().levelForExp(game, fields.species, fields.exp) || mon.level || 1;
-    const name = bridgeApi.speciesName(mon);
+    const api = pmh1();
+    const info = api.readMon(mon.raw);
+    const speciesRow = api.data.species[info.species] || [];
+    const genderRatio = speciesRow[6] ?? 127;
+    const originalLevel = api.levelForExp(info.species, info.exp);
     const isParty = Number.isInteger(mon.azothPartyIndex);
     const lock = isParty ? " disabled" : "";
-    const nicknameHint = mon.nickname ? `留空不修改（当前：${mon.nickname}）` : "留空不修改";
+    const nicknameHint = info.nickname ? `留空不修改（当前：${info.nickname}）` : "留空不修改";
 
-    const moves = [0, 1, 2, 3].map((i) => fields.moves[i] || 0);
-    const moveSelects = moves.map((move, i) => `
-      <label class="azoth-editor-row">
-        <span>招式 ${i + 1}</span>
-        <select id="azothEditorMove${i}" data-slot="${i}">
-          ${optionsFor("moves", move, "（空）")}
-        </select>
-      </label>`).join("");
+    const natureOptions = api.data.natures.map(([en, zh], index) =>
+      `<option value="${index}"${index === info.nature ? " selected" : ""}>${escapeHtml(zh)}（${escapeHtml(en)}）${NATURE_EFFECT[index]}</option>`
+    ).join("");
+
+    const genderOptions = api.genderChoices(genderRatio).map(([value, label]) =>
+      `<option value="${value}"${value === info.gender ? " selected" : ""}>${label}</option>`
+    ).join("");
+
+    const abilityOptions = api.abilityOptions(info.species).map((option) => {
+      const label = option.slot === 2 ? `${option.name}（梦特）` : `${option.name}（普通 ${option.slot + 1}）`;
+      return `<option value="${option.id}"${option.id === (info.abilitySlot === 2 ? speciesRow[5] : info.abilitySlot === 1 ? speciesRow[4] : speciesRow[3]) ? " selected" : ""}>${escapeHtml(label)}</option>`;
+    }).join("");
+
+    const ballOptions = api.data.balls.map(([id, en, zh]) =>
+      `<option value="${id}"${id === info.ball ? " selected" : ""}>${escapeHtml(zh)}（${escapeHtml(en)}）</option>`
+    ).join("");
+
+    const moveFields = [0, 1, 2, 3].map((index) =>
+      pickerField(`azothEditorMove${index}`, `招式 ${index + 1}`, pickerItems("moves"), info.moves?.[index] || 0, index === 0 ? "必填" : "可留空")
+    ).join("");
 
     const dialog = document.createElement("dialog");
     dialog.id = IDS.dialog;
@@ -218,25 +304,66 @@
       <form method="dialog" autocomplete="off">
         <header>
           <div>
-            <h2>编辑 · ${escapeHtml(name)}</h2>
-            <p>${isParty ? "队伍个体：等级、个体值、努力值锁定；点“保存 HOME 和 SAV”后写回存档。"
-              : detail.label === "HOME" ? "HOME 个体：保存后立即写入浏览器本地。"
-              : "SAV 个体：需再点顶部“保存 HOME 和 SAV”才写回存档。"}</p>
+            <h2>编辑 · ${escapeHtml(api.speciesName(info.species))}</h2>
+            <p>${isParty
+              ? "队伍个体：等级、性格、性别、闪光、个体值、努力值锁定；其余可改。"
+              : detail.label === "HOME"
+                ? "HOME 个体：保存后立即写入浏览器本地。"
+                : "SAV 个体：需再点顶部“保存 HOME 和 SAV”才写回存档。"}</p>
           </div>
           <button type="button" class="azoth-editor-close" data-action="cancel" aria-label="关闭">×</button>
         </header>
 
         <div class="azoth-editor-grid">
-          <label class="azoth-editor-row">
-            <span>等级</span>
-            <input type="number" id="${IDS.level}" min="1" max="100" step="1" value="${level}"${lock}>
-          </label>
+          <div class="azoth-editor-two">
+            <label class="azoth-editor-row">
+              <span>等级</span>
+              <input type="number" id="${IDS.level}" min="1" max="100" step="1" value="${originalLevel}"${lock}>
+            </label>
+            <label class="azoth-editor-row">
+              <span>性格</span>
+              <select id="${IDS.nature}"${lock}>${natureOptions}</select>
+            </label>
+          </div>
 
-          <label class="azoth-editor-row">
-            <span>携带道具</span>
-            <input type="search" id="azothEditorItemSearch" placeholder="搜索中文名或英文名…">
-            <select id="${IDS.item}">${optionsFor("items", fields.heldItem, "（无）")}</select>
-          </label>
+          <div class="azoth-editor-two">
+            <label class="azoth-editor-row">
+              <span>性别</span>
+              <select id="${IDS.gender}"${lock}>${genderOptions}</select>
+            </label>
+            <label class="azoth-editor-check">
+              <input type="checkbox" id="${IDS.shiny}"${info.shiny ? " checked" : ""}${lock}>
+              <span>闪光</span>
+            </label>
+          </div>
+
+          <div class="azoth-editor-two">
+            <label class="azoth-editor-row">
+              <span>特性</span>
+              <select id="${IDS.ability}">${abilityOptions}</select>
+            </label>
+            <label class="azoth-editor-row">
+              <span>球种</span>
+              <select id="${IDS.ball}">${ballOptions}</select>
+            </label>
+          </div>
+
+          ${pickerField(IDS.item, "携带道具", pickerItems("items"), info.heldItem || 0, "搜索中文名或英文名…")}
+
+          <div class="azoth-editor-row">
+            <span>招式 <small>支持中文名 / 英文名 / 编号</small></span>
+            ${moveFields}
+          </div>
+
+          <div class="azoth-editor-row">
+            <span>个体值 <small>0–31</small></span>
+            <div class="azoth-editor-stats">${statInputs("azothEditorIv", info.ivs, 31, IV_KEYS, isParty)}</div>
+          </div>
+
+          <div class="azoth-editor-row">
+            <span>努力值 <small>0–255，总和 ≤ 510</small></span>
+            <div class="azoth-editor-stats">${statInputs("azothEditorEv", info.evs, 255, EV_KEYS, isParty)}</div>
+          </div>
 
           <label class="azoth-editor-row">
             <span>昵称</span>
@@ -245,24 +372,9 @@
             <small>留空不修改；最多 9 字节（约 4～5 个全角字）。</small>
           </label>
 
-          <div class="azoth-editor-row">
-            <span>招式 <small>支持中文名 / 编号搜索</small></span>
-            <input type="search" id="${IDS.moveSearch}" placeholder="搜索招式…">
-            ${moveSelects}
-          </div>
-
-          <div class="azoth-editor-row">
-            <span>个体值 <small>0–31</small></span>
-            <div class="azoth-editor-stats">${statInputs("azothEditorIv", fields.ivs, 31, IV_KEYS, isParty)}</div>
-          </div>
-
-          <div class="azoth-editor-row">
-            <span>努力值 <small>0–255，总和 ≤ 510</small></span>
-            <div class="azoth-editor-stats">${statInputs("azothEditorEv", fields.evs, 255, EV_KEYS, isParty)}</div>
-          </div>
-
           <p class="azoth-editor-note">
-            物种、性格、性别、闪光、特性由 PID / OTID / 个体值决定，这里不提供修改；当前值见详情面板。
+            物种不可修改。性格、性别、闪光、特性通过重新搜索 PID 实现，会保留训练家信息；
+            个别组合可能无解，会提示调整条件。
           </p>
           <p class="azoth-editor-error" id="${IDS.error}" role="alert"></p>
         </div>
@@ -276,15 +388,7 @@
     document.body.appendChild(dialog);
     dialog.showModal();
 
-    const itemSelect = el(IDS.item);
-    const moveSelectsEls = [0, 1, 2, 3].map((i) => el(`azothEditorMove${i}`));
-
-    el("azothEditorItemSearch").addEventListener("input", (event) => {
-      filterSelect(itemSelect, event.target.value);
-    });
-    el(IDS.moveSearch).addEventListener("input", (event) => {
-      for (const select of moveSelectsEls) filterSelect(select, event.target.value);
-    });
+    for (const field of dialog.querySelectorAll(".azoth-picker")) bindPicker(field);
 
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) dialog.close();
@@ -301,8 +405,7 @@
     for (const key of keys) {
       const input = el(`${prefix}_${key}`);
       const value = Number(input.value);
-      if (!Number.isInteger(value)) throw new Error(`${LABELS[key]} 的数值无效`);
-      if (value < Number(input.min) || value > Number(input.max)) {
+      if (!Number.isInteger(value) || value < Number(input.min) || value > Number(input.max)) {
         throw new Error(`${LABELS[key]} 必须在 ${input.min}–${input.max} 之间`);
       }
       values[key] = value;
@@ -314,61 +417,66 @@
     const errorNode = el(IDS.error);
     try {
       const bridgeApi = bridge();
-      const codecApi = codec();
-      const game = bridgeApi.gameData();
+      const api = pmh1();
+      const info = api.readMon(mon.raw);
+      const isParty = Number.isInteger(mon.azothPartyIndex);
 
       const level = Number(el(IDS.level).value);
-      const moves = [0, 1, 2, 3].map((i) => Number(el(`azothEditorMove${i}`).value) || 0);
-      const ivs = readStats("azothEditorIv", IV_KEYS);
-      const evs = readStats("azothEditorEv", EV_KEYS);
+      if (!Number.isInteger(level) || level < 1 || level > 100) throw new Error("等级必须在 1–100 之间");
+
+      const heldItem = pickerValue(IDS.item);
+      if (heldItem == null) throw new Error("道具名称无法识别，请从下拉列表中选择");
+      const moves = [0, 1, 2, 3].map((index) => {
+        const value = pickerValue(`azothEditorMove${index}`);
+        if (value == null) throw new Error(`招式 ${index + 1} 无法识别，请从下拉列表中选择`);
+        return value;
+      });
+
+      const ivs = isParty ? info.ivs : readStats("azothEditorIv", IV_KEYS);
+      const evs = isParty ? info.evs : readStats("azothEditorEv", EV_KEYS);
       const evTotal = EV_KEYS.reduce((sum, key) => sum + evs[key], 0);
       if (evTotal > 510) throw new Error(`努力值总和 ${evTotal} 超过 510`);
 
-      const isParty = Number.isInteger(mon.azothPartyIndex);
-      const patch = {
-        heldItem: Number(el(IDS.item).value) || 0,
+      const option = {
+        species: info.species,
+        level: isParty ? api.levelForExp(info.species, info.exp) : level,
+        nature: isParty ? info.nature : Number(el(IDS.nature).value),
+        gender: isParty ? info.gender : Number(el(IDS.gender).value),
+        shiny: isParty ? info.shiny : el(IDS.shiny).checked,
+        abilityId: Number(el(IDS.ability).value),
+        ball: Number(el(IDS.ball).value),
+        heldItem,
         moves,
+        ivs,
+        evs,
+        nickname: el(IDS.nickname).value.trim() || info.nickname,
       };
-      if (!isParty) {
-        if (!Number.isInteger(level) || level < 1 || level > 100) throw new Error("等级必须在 1–100 之间");
-        const species = codecApi.read(mon.raw).species;
-        const exp = codecApi.expForLevel(game, species, level);
-        if (exp == null) throw new Error("无法用当前物种的经验表计算该等级");
-        patch.exp = exp;
-        patch.ivs = ivs;
-        patch.evs = evs;
-      }
 
-      const nickname = el(IDS.nickname).value.trim();
-      if (nickname && nickname !== (mon.nickname || "").trim()) {
-        const used = codecApi.nicknameBytes(nickname, bridgeApi.charmap());
-        if (used > 9) throw new Error("昵称过长，请缩短到 9 字节以内");
-        patch.nickname = nickname;
-      }
+      // Keep the original EXP so an untouched level never rewrites bytes.
+      if (isParty || option.level === api.levelForExp(info.species, info.exp)) option.exp = info.exp;
 
-      const raw = codecApi.apply(mon.raw, patch, { charmap: bridgeApi.charmap() });
+      const built = api.buildMon(option, mon.raw, bridgeApi.charmap());
+      dialog.close();
 
       if (isParty) {
-        const next = bridgeApi.updatePartyMon(mon.azothPartyIndex, raw);
+        const next = bridgeApi.updatePartyMon(mon.azothPartyIndex, built.raw);
         next.azothPartyIndex = mon.azothPartyIndex;
         bridgeApi.showDetail(next, "队伍");
         renderParty();
-        dialog.close();
-        bridgeApi.notify(`队伍中的 ${bridgeApi.speciesName(next)} 已修改，点“保存 HOME 和 SAV”后写回存档。`);
+        bridgeApi.notify(`队伍中的 ${api.speciesName(info.species)} 已修改，点“保存 HOME 和 SAV”后写回存档。`);
         return;
       }
 
-      const next = bridgeApi.updateMon(mon, raw);
+      const next = bridgeApi.updateMon(mon, built.raw);
       bridgeApi.showDetail(next, detail.label);
-      dialog.close();
-
       const scope = detail.label === "HOME" ? "HOME 已保存" : "SAV 待保存";
-      bridgeApi.notify(`已修改 ${bridgeApi.speciesName(next)}（Lv.${level}）。${scope}；SAV 请点“保存 HOME 和 SAV”后生效。`);
+      bridgeApi.notify(`已修改 ${api.speciesName(info.species)}（Lv.${option.level}）。${scope}；SAV 请点“保存 HOME 和 SAV”后生效。`);
     } catch (error) {
       if (errorNode) errorNode.textContent = error.message;
     }
   }
 
+  // ---------- injection ----------
   function editButton() {
     const button = document.createElement("button");
     button.type = "button";
@@ -384,8 +492,7 @@
     if (detail.querySelector("#azothEditBtn")) return;
     const actions = detail.querySelector(".detail-actions");
     if (!actions) return;
-    const current = bridge().getLastDetail();
-    if (!current) return;
+    if (!bridge().getLastDetail()) return;
     actions.appendChild(editButton());
   }
 

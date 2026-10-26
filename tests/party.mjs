@@ -85,21 +85,24 @@ try {
 
   const locks = await page.evaluate(() => ({
     level: document.getElementById("azothEditorLevel").disabled,
+    nature: document.getElementById("azothEditorNature").disabled,
+    gender: document.getElementById("azothEditorGender").disabled,
+    shiny: document.getElementById("azothEditorShiny").disabled,
     speciesEditor: Boolean(document.getElementById("azothEditorSpecies")),
     iv: document.getElementById("azothEditorIv_hp").disabled,
     ev: document.getElementById("azothEditorEv_hp").disabled,
   }));
   check(!locks.speciesEditor, "species editor should not exist");
-  check(locks.level && locks.iv && locks.ev, `party fields not locked: ${JSON.stringify(locks)}`);
+  check(locks.level && locks.nature && locks.gender && locks.shiny && locks.iv && locks.ev,
+    `party fields not locked: ${JSON.stringify(locks)}`);
 
-  const target = await page.evaluate(() => {
-    const select = document.getElementById("azothEditorMove0");
-    const current = Number(select.value);
-    const pick = [...select.options].map((option) => Number(option.value)).find((value) => value && value !== current);
-    return { current, pick };
-  });
-  check(target.pick != null, "no alternative move to pick");
-  await page.selectOption("#azothEditorMove0", String(target.pick));
+  const previousMove = await page.evaluate(() => window.AzothHomeInternal.getParty()[0].moves[0]);
+  await page.fill("#azothEditorMove0", "十万");
+  await page.waitForSelector(".azoth-picker-menu:not([hidden]) button", { timeout: 3000 });
+  await page.click(".azoth-picker-menu:not([hidden]) button");
+  const target = { current: previousMove, pick: await page.evaluate(() => Number(document.getElementById("azothEditorMove0").dataset.id)) };
+  check(target.pick > 0 && target.pick !== target.current, `picked move ${target.pick} equals current ${target.current}`);
+
   await page.click('.azoth-editor button[data-action="save"]');
   await page.waitForFunction(() => !document.getElementById("azothEditorDialog"), null, { timeout: 5000 });
 

@@ -38,7 +38,13 @@ BODY_ANCHOR = "</body>"
 IIFE_ANCHOR = "})().catch("
 
 STYLES = ["extras/home-editor.css"]
-SCRIPTS = ["extras/mon-codec.js", "extras/showdown.js", "extras/home-editor.js"]
+SCRIPTS = [
+    "extras/data/pmh1-data.js",
+    "extras/mon-codec.js",
+    "extras/pmh1.js",
+    "extras/showdown.js",
+    "extras/home-editor.js",
+]
 
 SHARED_DIRS = ("pokemon", "stylesheets", "javascripts", "play")
 
