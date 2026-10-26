@@ -1,0 +1,79 @@
+name: 同步上游
+
+on:
+  schedule:
+    # 每天 UTC 19:00（北京时间 03:00）
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 拉取上游子集
+        id: sync
+        run: |
+          python scripts/sync_upstream.py
+          if git diff --quiet -- upstream upstream.lock.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            python -c "import json; print('commit=' + json.load(open('upstream.lock.json'))['commit'][:10])" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 安装测试依赖
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          bun install --frozen-lockfile
+          npx --yes playwright@1.64.1 install --with-deps chromium
+
+      - name: 验证注入锚点与构建
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          python scripts/build.py
+          python scripts/smoke.py
+          node --test tests/codec.test.mjs
+
+      - name: 浏览器冒烟
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          PW_CHANNEL: none
+        run: node tests/browser.mjs
+
+      - name: 开同步 PR
+        if: steps.sync.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: sync-upstream
+          delete-branch: true
+          title: "同步上游 ${{ steps.sync.outputs.commit }}"
+          commit-message: |
+            同步上游 ${{ steps.sync.outputs.commit }}
+
+            由 .github/workflows/sync.yml 自动生成，构建与冒烟测试已通过。
+          body: |
+            上游 `Sum-Light/azoth-wiki` 有新提交：`${{ steps.sync.outputs.commit }}`
+
+            本 PR 只更新 `upstream/` 与 `upstream.lock.json`；
+            `dist/` 由部署工作流重新构建。
+
+            合并前请看一眼 `upstream/home/app.html` 的 diff，
+            确认没有改动注入锚点（`</head>`、`</body>`、`})().catch(`）或编辑器依赖的 DOM id。
