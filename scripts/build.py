@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 """Assemble ``dist/`` from the upstream mirror plus local extras.
 
-The upstream files are never edited in place. Everything local is added at
-build time through three anchors:
+Layout: the app is served from the site root, so ``https://<user>.github.io/
+azoth-home/`` opens HOME directly (no redirect page).
+
+    dist/
+      index.html            upstream home/app.html, rewritten for the root
+      home-game-data.json   ../pokemon/ -> pokemon/
+      item_icons/ pokemon/ stylesheets/ javascripts/ play/ extras/
+      home/index.html       redirect for old /home/ links
+
+Upstream files are never edited in place. Everything local is added at build
+time through three anchors:
 
     </head>          -> stylesheet link
     </body>          -> script tags (after upstream's own scripts)
     })().catch(      -> the bridge, injected inside upstream's IIFE scope
-
-Each anchor must appear exactly once (the IIFE anchor uses the last match).
-A missing anchor fails the build instead of silently shipping a broken page.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -25,13 +32,31 @@ UPSTREAM = ROOT / "upstream"
 SRC = ROOT / "src"
 DIST = ROOT / "dist"
 
-APP = "home/app.html"
+APP = "index.html"
 HEAD_ANCHOR = "</head>"
 BODY_ANCHOR = "</body>"
 IIFE_ANCHOR = "})().catch("
 
 STYLES = ["extras/home-editor.css"]
-SCRIPTS = ["extras/mon-codec.js", "extras/home-editor.js"]
+SCRIPTS = ["extras/mon-codec.js", "extras/showdown.js", "extras/home-editor.js"]
+
+SHARED_DIRS = ("pokemon", "stylesheets", "javascripts", "play")
+
+URL_REWRITES = {
+    "../stylesheets/": "stylesheets/",
+    "../javascripts/": "javascripts/",
+    "../play/": "play/",
+}
+
+DATA_REWRITES = {
+    '"../pokemon/': '"pokemon/',
+}
+
+DEFAULT_PROFILE = [
+    ('<option value="fc">', '<option value="fc" selected>'),
+    ('<option value="tower" selected>', '<option value="tower">'),
+    ('let currentBrowserProfile = "tower";', 'let currentBrowserProfile = "fc";'),
+]
 
 
 def fail(message: str) -> None:
@@ -49,76 +74,62 @@ def tree_hash(path: Path) -> str:
 
 def inject(html: str, version: str) -> str:
     if html.count(HEAD_ANCHOR) != 1:
-        fail(f"expected exactly one {HEAD_ANCHOR!r} in {APP}")
+        fail(f"expected exactly one {HEAD_ANCHOR!r} in upstream app.html")
     if html.count(BODY_ANCHOR) != 1:
-        fail(f"expected exactly one {BODY_ANCHOR!r} in {APP}")
+        fail(f"expected exactly one {BODY_ANCHOR!r} in upstream app.html")
 
-    head = "".join(
-        f'  <link rel="stylesheet" href="../{path}?v={version}">\n' for path in STYLES
-    )
+    head = "".join(f'  <link rel="stylesheet" href="{path}?v={version}">\n' for path in STYLES)
     html = html.replace(HEAD_ANCHOR, head + HEAD_ANCHOR, 1)
 
-    body = "".join(
-        f'  <script src="../{path}?v={version}"></script>\n' for path in SCRIPTS
-    )
+    body = "".join(f'  <script src="{path}?v={version}"></script>\n' for path in SCRIPTS)
     html = html.replace(BODY_ANCHOR, body + BODY_ANCHOR, 1)
 
     index = html.rfind(IIFE_ANCHOR)
     if index < 0:
         fail(f"cannot find the IIFE tail {IIFE_ANCHOR!r}; upstream structure changed")
     bridge = (SRC / "bridge.js").read_text(encoding="utf-8").rstrip() + "\n\n"
-    html = html[:index] + bridge + html[index:]
+    return html[:index] + bridge + html[index:]
+
+
+def rewrite_root(html: str) -> str:
+    for old, new in URL_REWRITES.items():
+        html = html.replace(old, new)
     return html
 
 
-def write_landing(target: Path) -> None:
-    target.write_text(
-        """<!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>宝可梦水银 HOME</title>
-<meta http-equiv="refresh" content="0; url=home/app.html">
-<style>
-  :root { color-scheme: light dark; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center;
-         font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-         background: #f5f7f7; color: #243332; }
-  a { color: #195e54; font-size: 18px; }
-  p { color: #586967; font-size: 14px; }
-</style>
-</head>
-<body>
-<main>
-  <p>正在打开水银 HOME…</p>
-  <p><a href="home/app.html">如果没有自动跳转，点这里</a></p>
-</main>
-</body>
-</html>
-""",
-        encoding="utf-8",
-    )
+def apply_default_profile(html: str) -> str:
+    for old, new in DEFAULT_PROFILE:
+        if html.count(old) != 1:
+            fail(f"expected exactly one {old!r} in upstream app.html")
+        html = html.replace(old, new, 1)
+    return html
 
 
-def write_home_index(target: Path) -> None:
-    """GitHub Pages serves directory URLs from index.html, not app.html."""
+def copy_home(target: Path) -> None:
+    for item in (UPSTREAM / "home").iterdir():
+        destination = target / item.name
+        if item.is_dir():
+            shutil.copytree(item, destination)
+        else:
+            shutil.copy2(item, destination)
+
+
+def write_legacy_redirect(target: Path) -> None:
     target.write_text(
         """<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <title>宝可梦水银 HOME</title>
-<meta http-equiv="refresh" content="0; url=app.html">
+<meta http-equiv="refresh" content="0; url=../">
 </head>
 <body>
-<p><a href="app.html">正在打开水银 HOME…</a></p>
+<p><a href="../">水银 HOME 已移到站点首页</a></p>
 </body>
 </html>
 """,
         encoding="utf-8",
     )
-
 
 
 def main() -> int:
@@ -133,15 +144,28 @@ def main() -> int:
         shutil.rmtree(DIST)
     DIST.mkdir(parents=True, exist_ok=True)
 
-    shutil.copytree(UPSTREAM, DIST, dirs_exist_ok=True)
-    shutil.copytree(SRC / "extras", DIST / "extras", dirs_exist_ok=True)
+    copy_home(DIST)
+    for name in SHARED_DIRS:
+        shutil.copytree(UPSTREAM / name, DIST / name)
+    shutil.copytree(SRC / "extras", DIST / "extras")
+    shutil.copytree(SRC / "data", DIST / "extras" / "data")
 
-    version = tree_hash(SRC / "extras") + "-" + tree_hash(UPSTREAM / "home")[:4]
-    app = DIST / APP
-    app.write_text(inject(app.read_text(encoding="utf-8"), version), encoding="utf-8")
+    data_file = DIST / "home-game-data.json"
+    data = data_file.read_text(encoding="utf-8")
+    for old, new in DATA_REWRITES.items():
+        data = data.replace(old, new)
+    if '"../pokemon/' in data:
+        fail("some pokemon paths were not rewritten in home-game-data.json")
+    data_file.write_text(data, encoding="utf-8")
 
-    write_landing(DIST / "index.html")
-    write_home_index(DIST / "home" / "index.html")
+    version = tree_hash(SRC) + "-" + tree_hash(UPSTREAM / "home")[:4]
+    upstream_app = (DIST / "app.html").read_text(encoding="utf-8")
+    html = rewrite_root(apply_default_profile(upstream_app))
+    (DIST / APP).write_text(inject(html, version), encoding="utf-8")
+    (DIST / "app.html").unlink()
+
+    (DIST / "home").mkdir(exist_ok=True)
+    write_legacy_redirect(DIST / "home" / "index.html")
 
     files = sum(1 for p in DIST.rglob("*") if p.is_file())
     size = sum(p.stat().st_size for p in DIST.rglob("*") if p.is_file())

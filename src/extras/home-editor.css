@@ -1,5 +1,12 @@
 /* Styles for the injected editor. Upstream styles are untouched. */
 
+/* This build is file-based only: hide the browser-save picker and button.
+   The nodes stay in the DOM because upstream's script binds handlers to them. */
+#browserSaveVersion,
+#browserSaveBtn {
+  display: none !important;
+}
+
 .azoth-party {
   grid-column: 1 / -1;
   background: #fff;
@@ -238,6 +245,93 @@
   min-height: 18px;
   font-size: 13px;
   color: #b3261e;
+}
+
+.azoth-showdown {
+  border: 0;
+  padding: 0;
+  border-radius: 8px;
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100vh - 32px);
+  background: #fff;
+  color: #243332;
+  box-shadow: 0 18px 48px rgba(20, 30, 28, 0.28);
+  font-family: var(--md-text-font, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif);
+  font-size: 14px;
+}
+
+.azoth-showdown::backdrop {
+  background: rgba(20, 30, 28, 0.45);
+}
+
+.azoth-showdown form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.azoth-showdown header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.azoth-showdown h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  color: #195e54;
+}
+
+.azoth-showdown header p {
+  margin: 0;
+  font-size: 12px;
+  color: #586967;
+}
+
+.azoth-showdown textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 220px;
+  resize: vertical;
+  font-family: ui-monospace, Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #243332;
+  background: #f7fbfa;
+  border: 1px solid #b9cdc7;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.azoth-showdown textarea:focus {
+  outline: 2px solid rgba(40, 125, 112, 0.35);
+  border-color: #287d70;
+}
+
+.azoth-showdown footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.azoth-showdown footer button {
+  font: inherit;
+  padding: 7px 16px;
+  border-radius: 4px;
+  border: 1px solid #b9cdc7;
+  background: #fff;
+  color: #195e54;
+  cursor: pointer;
+}
+
+.azoth-showdown footer button.primary {
+  background: #287d70;
+  border-color: #287d70;
+  color: #fff;
 }
 
 .azoth-editor footer {

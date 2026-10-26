@@ -14,9 +14,12 @@
 ```
 upstream/       上游镜像，由脚本写入，禁止手改
 src/
-  bridge.js     注入上游 IIFE 的 30 行桥（唯一进入上游作用域的本地代码）
+  bridge.js     注入上游 IIFE 的桥（唯一进入上游作用域的本地代码）
+  data/
+    moves-en.json   招式英文名（PokeAPI，构建时由 scripts/fetch_move_names.py 生成）
   extras/
     mon-codec.js      58 字节个体字段编解码
+    showdown.js       Showdown 文本导入
     home-editor.js    detail 面板里的编辑器
     home-editor.css
 scripts/
@@ -43,10 +46,13 @@ node tests/browser.mjs          # 本地默认用系统 Edge，CI 里 PW_CHANNEL
 
 ```bash
 python -m http.server 8000 --directory dist
-# http://127.0.0.1:8000/home/app.html
+# http://127.0.0.1:8000/
 ```
 
-> 不能双击打开 `app.html`：`fetch()` 读 JSON 和 `isSecureContext` 都需要 http(s)。
+> 不能双击打开 `index.html`：`fetch()` 读 JSON 和 `isSecureContext` 都需要 http(s)。
+
+站点根目录就是应用本身（`dist/index.html` = 上游 `home/app.html` 改写路径后得到），
+`/home/` 只保留一个跳转页给旧链接。
 
 ## 注入原理
 
@@ -54,8 +60,8 @@ python -m http.server 8000 --directory dist
 
 | 锚点 | 注入内容 |
 |---|---|
-| `</head>` | `../extras/home-editor.css` |
-| `</body>` | `../extras/mon-codec.js`、`../extras/home-editor.js` |
+| `</head>` | `extras/home-editor.css` |
+| `</body>` | `extras/mon-codec.js`、`extras/showdown.js`、`extras/home-editor.js` |
 | `})().catch(` | `src/bridge.js`（在上游 IIFE 内部，因此能访问 `homeBoxes` 等闭包变量） |
 
 任一锚点消失，构建直接失败，不会产出坏页面。`scripts/smoke.py` 再校验注入位置、
@@ -63,15 +69,20 @@ python -m http.server 8000 --directory dist
 
 ## 编辑器能力
 
-- **箱子个体**：物种、等级、携带道具、4 个招式、个体值、努力值、昵称、梦特槽。
+- **箱子个体**：等级、携带道具、4 个招式、个体值、努力值、昵称。
 - **队伍个体**（仅水银 FC）：读取 SaveBlock1 的 6 个队伍槽并显示在页面顶部；可改招式、
-  携带道具、昵称、梦特槽。物种 / 等级 / 个体值 / 努力值在队伍里锁定，因为队伍的
+  携带道具、昵称。等级 / 个体值 / 努力值在队伍里锁定，因为队伍的
   等级和 HP／能力值是存档里的权威数据，改动后需要重算战斗数据（见
   `tests/party-layout.md`）。
-- 只读：性格、性别、闪光（由 PID / OTID 决定，改动需要重算 PID，暂不提供）。
+- **导入 Showdown**：顶部“导入 Showdown”按钮，粘贴 Showdown 导出的文本，可一次多只，
+  按顺序放进 HOME 空位。识别物种、道具、等级、EVs、IVs、招式、昵称；名称支持中英文
+  （道具中英双语，招式英文名来自 PokeAPI，编号与水银一致）。特性 / 性格 / 性别 / 闪光
+  不导入，新个体沿用模板个体的 PID。
+- **不提供修改**：物种、性格、性别、闪光、特性（由 PID / OTID / 个体值决定）。
 - 编辑 HOME 个体：立即写入浏览器 localStorage。
 - 编辑 SAV 箱子／队伍：在内存中修改，需要再点顶部「保存 HOME 和 SAV」才写回存档。
 - 新版对战塔个体（61 字节）暂不支持编辑，需要先移入 HOME。
+- 本构建隐藏了“读取网页存档”的版本选择与按钮，只走 SAV 文件导入导出。
 
 ## 测试
 

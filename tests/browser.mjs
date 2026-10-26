@@ -75,7 +75,7 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => consoleErrors.push(String(error)));
 
 try {
-  await page.goto(`${base}/home/`, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.goto(`${base}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
   await page.waitForFunction(
     () => document.documentElement.dataset.azothHomeEditor === "1",
     null,
@@ -93,6 +93,13 @@ try {
   check(initial.codec, "AzothMonCodec is missing");
   check(initial.boxCount === 25, `expected 25 HOME boxes, got ${initial.boxCount}`);
   check(initial.ids.length === 0, `missing DOM ids: ${initial.ids.join(", ")}`);
+
+  const order = await page.evaluate(() => {
+    const ids = [...document.querySelectorAll("header.top button")].map((node) => node.id);
+    return { ids, share: ids.indexOf("importMonBtn"), showdown: ids.indexOf("azothShowdownBtn"), save: ids.indexOf("saveBtn") };
+  });
+  check(order.share >= 0 && order.showdown === order.share + 1 && order.save > order.showdown,
+    `showdown button is not between share and save: ${order.ids.join(",")}`);
 
   await page.evaluate(() => {
     const b = window.AzothHomeInternal;
@@ -132,13 +139,15 @@ try {
 
   const form = await page.evaluate(() => ({
     level: document.getElementById("azothEditorLevel").value,
-    species: document.getElementById("azothEditorSpecies").value,
+    speciesEditor: Boolean(document.getElementById("azothEditorSpecies")),
     ivHp: document.getElementById("azothEditorIv_hp").value,
     optionCount: document.getElementById("azothEditorMove0").options.length,
+    itemSample: document.getElementById("azothEditorItem").options[1]?.textContent ?? "",
   }));
-  check(form.species === "1", `species field shows ${form.species}`);
+  check(!form.speciesEditor, "species editor should not exist");
   check(form.ivHp === "31", `hp IV field shows ${form.ivHp}`);
   check(form.optionCount > 900, `move list only has ${form.optionCount} options`);
+  check(/（[A-Z_]+）/.test(form.itemSample) || /[A-Z_]{3,}/.test(form.itemSample), `item label is not bilingual: ${form.itemSample}`);
 
   await page.fill("#azothEditorLevel", "50");
   await page.click('.azoth-editor button[data-action="save"]');
@@ -161,6 +170,26 @@ try {
   check(after.ivs.hp === 31, `hp IV changed unexpectedly to ${after.ivs.hp}`);
   check(after.nickname === "测试", `nickname is ${JSON.stringify(after.nickname)}`);
   check(after.rawLength === 58, `raw length is ${after.rawLength}`);
+
+  // Showdown import: uses the edited mon as the PID template, lands in slot 2.
+  await page.click("#azothShowdownBtn");
+  await page.waitForSelector("#azothShowdownDialog[open]", { timeout: 5000 });
+  await page.fill(
+    "#azothShowdownText",
+    "Pikachu @ Light Ball\nLevel: 50\nIVs: 0 Atk\n- Thunderbolt\n- Surf",
+  );
+  await page.click('.azoth-showdown button[data-action="import"]');
+  await page.waitForFunction(() => !document.getElementById("azothShowdownDialog"), null, { timeout: 5000 });
+
+  const imported = await page.evaluate(() => {
+    const mon = window.AzothHomeInternal.getHomeBoxes()[0][1];
+    return mon ? { species: mon.species, level: mon.level, moves: mon.moves, item: mon.heldItem } : null;
+  });
+  check(imported != null, "showdown import did not fill the next slot");
+  check(imported?.species === 25, `imported species is ${imported?.species}`);
+  check(imported?.level === 50, `imported level is ${imported?.level}`);
+  check(imported?.moves[0] === 85, `imported move is ${imported?.moves[0]}`);
+  check((imported?.item ?? 0) > 0, "imported held item is empty");
 
   const realErrors = consoleErrors.filter((text) => !/favicon/i.test(text));
   check(realErrors.length === 0, `console errors: ${realErrors.join(" | ")}`);

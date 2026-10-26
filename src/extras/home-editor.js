@@ -5,9 +5,10 @@
    never replaces the upstream markup: it watches #detail and appends one extra
    action button.
 
-   Supported: species, level, held item, 4 moves, IVs, EVs, nickname, hidden
-   ability slot. PID-derived traits (nature, gender, shininess) stay read-only
-   because changing them means rewriting PID/OTID.
+   Supported: level, held item, 4 moves, IVs, EVs, nickname. Species, nature,
+   gender, shininess and ability stay read-only (PID/OTID derived). Party
+   members additionally lock level/IV/EV because their battle stats live in the
+   save and would go stale.
 */
 (function () {
   "use strict";
@@ -16,9 +17,7 @@
     dialog: "azothEditorDialog",
     nickname: "azothEditorNickname",
     level: "azothEditorLevel",
-    species: "azothEditorSpecies",
     item: "azothEditorItem",
-    hidden: "azothEditorHidden",
     moveSearch: "azothEditorMoveSearch",
     error: "azothEditorError",
   };
@@ -47,22 +46,35 @@
     bridge().notify(text);
   }
 
-  function rowsFor(kind, game) {
+  /* Items have a Chinese name in compat.meta.names.items and an English macro in
+     gameData.items, so the option shows both and the filter matches either.
+     Moves only ship Chinese names upstream; the id is appended so a numeric
+     search still works. */
+  function displayLabel(kind, id) {
+    const key = String(id);
+    if (kind === "items") {
+      const zh = bridge().compat()?.meta?.names?.items?.[key];
+      const en = bridge().gameData()?.items?.[key];
+      if (zh && en && zh !== en) return `${zh}（${en}）`;
+      return zh || en || `#${id}`;
+    }
+    if (kind === "moves") {
+      const zh = bridge().gameData()?.moves?.[key];
+      return zh ? `${zh}（#${id}）` : `#${id}`;
+    }
+    return `#${id}`;
+  }
+
+  function rowsFor(kind) {
     const cached = optionCache.get(kind);
     if (cached) return cached;
+    const game = bridge().gameData();
     const rows = [];
-    if (kind === "species") {
-      for (const [id, entry] of Object.entries(game.species || {})) {
-        const n = Number(id);
-        if (!n || !entry) continue;
-        rows.push([n, entry.name || `#${n}`]);
-      }
-    } else {
-      for (const [id, name] of Object.entries(game[kind] || {})) {
-        const n = Number(id);
-        if (!n) continue;
-        rows.push([n, name || `#${n}`]);
-      }
+    const table = kind === "items" ? game.items : game.moves;
+    for (const id of Object.keys(table || {})) {
+      const n = Number(id);
+      if (!n) continue;
+      rows.push([n, displayLabel(kind, n)]);
     }
     rows.sort((a, b) => a[0] - b[0]);
     optionCache.set(kind, rows);
@@ -70,8 +82,7 @@
   }
 
   function optionsFor(kind, selected, noneLabel) {
-    const game = bridge().gameData();
-    const rows = rowsFor(kind, game);
+    const rows = rowsFor(kind);
     const parts = [];
     if (noneLabel != null) {
       parts.push(`<option value="0"${selected ? "" : " selected"}>${escapeHtml(noneLabel)}</option>`);
@@ -207,7 +218,7 @@
         <header>
           <div>
             <h2>编辑 · ${escapeHtml(name)}</h2>
-            <p>${isParty ? "队伍个体：等级、物种、个体值、努力值锁定；点“保存 HOME 和 SAV”后写回存档。"
+            <p>${isParty ? "队伍个体：等级、个体值、努力值锁定；点“保存 HOME 和 SAV”后写回存档。"
               : detail.label === "HOME" ? "HOME 个体：保存后立即写入浏览器本地。"
               : "SAV 个体：需再点顶部“保存 HOME 和 SAV”才写回存档。"}</p>
           </div>
@@ -216,31 +227,25 @@
 
         <div class="azoth-editor-grid">
           <label class="azoth-editor-row">
-            <span>物种</span>
-            <input type="search" id="azothEditorSpeciesSearch" placeholder="搜索物种…"${lock}>
-            <select id="${IDS.species}"${lock}>${optionsFor("species", fields.species, null)}</select>
-          </label>
-
-          <label class="azoth-editor-row">
             <span>等级</span>
             <input type="number" id="${IDS.level}" min="1" max="100" step="1" value="${level}"${lock}>
           </label>
 
           <label class="azoth-editor-row">
             <span>携带道具</span>
-            <input type="search" id="azothEditorItemSearch" placeholder="搜索道具…">
+            <input type="search" id="azothEditorItemSearch" placeholder="搜索中文名或英文名…">
             <select id="${IDS.item}">${optionsFor("items", fields.heldItem, "（无）")}</select>
           </label>
 
           <label class="azoth-editor-row">
             <span>昵称</span>
-            <input type="text" id="${IDS.nickname}" maxlength="12" value="${escapeHtml(mon.nickname || "")}"
-                   placeholder="留空则不修改">
-            <small>最多 9 字节（约 4～5 个全角字），超出会被截断。</small>
+            <input type="text" id="${IDS.nickname}" maxlength="12" value=""
+                   placeholder="${escapeHtml(mon.nickname || "留空则保持原名")}">
+            <small>留空不修改；最多 9 字节（约 4～5 个全角字）。</small>
           </label>
 
           <div class="azoth-editor-row">
-            <span>招式</span>
+            <span>招式 <small>支持中文名 / 编号搜索</small></span>
             <input type="search" id="${IDS.moveSearch}" placeholder="搜索招式…">
             ${moveSelects}
           </div>
@@ -255,14 +260,8 @@
             <div class="azoth-editor-stats">${statInputs("azothEditorEv", fields.evs, 255, EV_KEYS, isParty)}</div>
           </div>
 
-          <label class="azoth-editor-check">
-            <input type="checkbox" id="${IDS.hidden}"${fields.hiddenAbility ? " checked" : ""}>
-            <span>梦特槽（写入 IV 字的最高位）</span>
-          </label>
-
           <p class="azoth-editor-note">
-            性格、性别、闪光由 PID / OTID 决定，这里只读。特性槽切换请用上方“梦特槽”，
-            普通两槽的互换需要重算 PID，暂不提供。
+            物种、性格、性别、闪光、特性由 PID / OTID / 个体值决定，这里不提供修改；当前值见详情面板。
           </p>
           <p class="azoth-editor-error" id="${IDS.error}" role="alert"></p>
         </div>
@@ -276,13 +275,9 @@
     document.body.appendChild(dialog);
     dialog.showModal();
 
-    const speciesSelect = el(IDS.species);
     const itemSelect = el(IDS.item);
     const moveSelectsEls = [0, 1, 2, 3].map((i) => el(`azothEditorMove${i}`));
 
-    el("azothEditorSpeciesSearch").addEventListener("input", (event) => {
-      filterSelect(speciesSelect, event.target.value);
-    });
     el("azothEditorItemSearch").addEventListener("input", (event) => {
       filterSelect(itemSelect, event.target.value);
     });
@@ -321,13 +316,7 @@
       const codecApi = codec();
       const game = bridgeApi.gameData();
 
-      const species = Number(el(IDS.species).value);
       const level = Number(el(IDS.level).value);
-      if (!Number.isInteger(level) || level < 1 || level > 100) throw new Error("等级必须在 1–100 之间");
-
-      const exp = codecApi.expForLevel(game, species, level);
-      if (exp == null) throw new Error("无法用当前物种的经验表计算该等级，请检查物种");
-
       const moves = [0, 1, 2, 3].map((i) => Number(el(`azothEditorMove${i}`).value) || 0);
       const ivs = readStats("azothEditorIv", IV_KEYS);
       const evs = readStats("azothEditorEv", EV_KEYS);
@@ -338,10 +327,12 @@
       const patch = {
         heldItem: Number(el(IDS.item).value) || 0,
         moves,
-        hiddenAbility: el(IDS.hidden).checked,
       };
       if (!isParty) {
-        patch.species = species;
+        if (!Number.isInteger(level) || level < 1 || level > 100) throw new Error("等级必须在 1–100 之间");
+        const species = codecApi.read(mon.raw).species;
+        const exp = codecApi.expForLevel(game, species, level);
+        if (exp == null) throw new Error("无法用当前物种的经验表计算该等级");
         patch.exp = exp;
         patch.ivs = ivs;
         patch.evs = evs;

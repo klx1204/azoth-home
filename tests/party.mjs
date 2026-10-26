@@ -61,7 +61,7 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => consoleErrors.push(String(error)));
 
 async function openHome() {
-  await page.goto(`${base}/home/app.html`, { waitUntil: "load", timeout: 30000 });
+  await page.goto(`${base}/`, { waitUntil: "load", timeout: 30000 });
   await page.waitForFunction(() => document.documentElement.dataset.azothHomeEditor === "1", null, { timeout: 30000 });
 }
 
@@ -85,11 +85,12 @@ try {
 
   const locks = await page.evaluate(() => ({
     level: document.getElementById("azothEditorLevel").disabled,
-    species: document.getElementById("azothEditorSpeciesSearch").disabled,
+    speciesEditor: Boolean(document.getElementById("azothEditorSpecies")),
     iv: document.getElementById("azothEditorIv_hp").disabled,
     ev: document.getElementById("azothEditorEv_hp").disabled,
   }));
-  check(locks.level && locks.species && locks.iv && locks.ev, `party fields not locked: ${JSON.stringify(locks)}`);
+  check(!locks.speciesEditor, "species editor should not exist");
+  check(locks.level && locks.iv && locks.ev, `party fields not locked: ${JSON.stringify(locks)}`);
 
   const target = await page.evaluate(() => {
     const select = document.getElementById("azothEditorMove0");

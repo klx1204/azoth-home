@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
-APP = DIST / "home" / "app.html"
+APP = DIST / "index.html"
 
 REQUIRED_IDS = [
     "homeBox", "savBox", "homePrev", "homeNext", "savPrev", "savNext",
@@ -26,9 +26,10 @@ REQUIRED_IDS = [
 ]
 
 INJECTED = [
-    "../extras/home-editor.css",
-    "../extras/mon-codec.js",
-    "../extras/home-editor.js",
+    "extras/home-editor.css",
+    "extras/mon-codec.js",
+    "extras/showdown.js",
+    "extras/home-editor.js",
 ]
 
 BRIDGE_MARK = "window.AzothHomeInternal"
@@ -71,6 +72,10 @@ def main() -> int:
     for element_id in REQUIRED_IDS:
         check(f'id="{element_id}"' in html, f"upstream DOM id #{element_id} disappeared")
 
+    check('<option value="fc" selected>' in html, "default save profile is not FC 1.33")
+    check('let currentBrowserProfile = "fc";' in html, "currentBrowserProfile default is not fc")
+    check("../stylesheets/" not in html, "app still uses ../stylesheets paths")
+
     collector = AssetCollector()
     collector.feed(html)
     for ref in collector.refs:
@@ -80,11 +85,13 @@ def main() -> int:
         target = (APP.parent / parsed.path).resolve()
         check(target.is_file(), f"referenced asset not found: {ref} -> {target}")
 
-    data_path = DIST / "home" / "home-game-data.json"
+    data_path = DIST / "home-game-data.json"
     check(data_path.is_file(), "home-game-data.json is missing")
     if data_path.is_file():
+        raw = data_path.read_text(encoding="utf-8")
+        check('"../pokemon/' not in raw, "game data still contains ../pokemon paths")
         try:
-            data = json.loads(data_path.read_text(encoding="utf-8"))
+            data = json.loads(raw)
             for key in ("species", "moves", "items", "charmap"):
                 check(key in data and isinstance(data[key], dict), f"game data is missing {key}")
         except ValueError as error:
@@ -100,6 +107,8 @@ def main() -> int:
     check((DIST / "javascripts" / "pixel-images.js").is_file(), "javascripts/pixel-images.js is missing")
     check((DIST / "play" / "native-save.js").is_file(), "play/native-save.js is missing")
     check((DIST / "extras" / "mon-codec.js").is_file(), "extras/mon-codec.js is missing")
+    check((DIST / "extras" / "showdown.js").is_file(), "extras/showdown.js is missing")
+    check((DIST / "extras" / "data" / "moves-en.json").is_file(), "extras/data/moves-en.json is missing")
     check((DIST / "index.html").is_file(), "dist/index.html landing page is missing")
     check((DIST / "home" / "index.html").is_file(), "dist/home/index.html redirect page is missing")
 
